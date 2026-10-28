@@ -204,7 +204,8 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     msg("display_off", "HEADLESS-2")
     msg("profile", "blue")
     msg("profile_drawn", "blue")
-    assert crossfade() == {"HEADLESS-1": ("fading", "blue", 1000)}, crossfade()
+    state = crossfade()  # at this speed a slow frame may already have stepped the fade
+    assert set(state) == {"HEADLESS-1"} and state["HEADLESS-1"][:2] == ("fading", "blue"), state
     msg("display_off", "HEADLESS-1")
     wait_for(lambda: crossfade() == {}, "the crossfade over with its last monitor")
     msg("display_on")
