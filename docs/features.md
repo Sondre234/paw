@@ -3827,8 +3827,8 @@ area a window shown there reaches (`top,left`, or `-`; a floating bar docks alon
 change, plus `launcher OUTPUT` when the `launcher` action
 (a tap of Super) asks the panel on that monitor to open or close its start menu, and `run OUTPUT`
 when the `run` action (Super + R) asks the shell for its [run launcher](#run-launcher) there; the
-panel uses these. The window switcher sends `switcher OUTPUT SELECTED COUNT` followed by
-COUNT lines `switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
+panel uses these. The window switcher sends `switcher OUTPUT SELECTED COUNT` (ending with `app`
+when it lists [one application's windows](#one-applications-windows)) followed by COUNT lines `switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
 opens or a listed window closes, `switcher-select N` as the selection moves (both counting
 from 0), and `switcher-close`. ID is the window's number, which the compositor gives each window as
 it appears and never gives another; a taskbar gets the same number for its handle of the window
