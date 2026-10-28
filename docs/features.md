@@ -3167,8 +3167,8 @@ dragged by its title. The modifier's press and release still reach the
 application with the keyboard as usual. Any other key's binding has the key from its press, so
 the application hears neither. `mods` are the modifiers held as the key goes down; with a
 modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same
-binding). A key may have a binding of each kind, `release` does not go with `repeats`, and
-mouse buttons and switches take none. While the switcher has the keys, or an application holds
+binding). A key may have one binding as it goes down and one as it comes up (a pair, below, is
+both), `release` does not go with `repeats`, and mouse buttons and switches take none. While the switcher has the keys, or an application holds
 the shortcuts, nothing waits for a release, nor while the overview or the exploded view is open
 but for its own action (`toggle_overview`, `xray`), so that a tap can close what a tap opened; on
 the lock screen only a `locked` one does. Tapping Super for the start menu (Launchpad in the
