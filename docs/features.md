@@ -297,8 +297,9 @@ keyboard no window has it, so no button is marked as focused. A screen reader na
 button or window as the selection moves.
 
 The workspace indicator lists the monitor's workspaces, the current one on a pill, with a dot
-under those with windows: click one to switch to it, or scroll anywhere on the bar to page through
-them. Resting the pointer on one shows a picture of it ([below](#workspace-pictures)), and
+under those with windows, minimized ones not counting (they come back onto the workspace shown,
+wherever they were minimized): click one to switch to it, or scroll anywhere on the bar to page
+through them. Resting the pointer on one shows a picture of it ([below](#workspace-pictures)), and
 dragging a window's button onto one moves the window there. A right click on the bar's empty space opens its menu: tiling on or off, the start menu,
 show desktop, and the appearance profiles beside their entry.
 
@@ -1425,9 +1426,10 @@ a tinted background and a pulsing dot, the workspace indicator marks its workspa
 frames its thumbnail and colours its workspace, the window switcher puts a dot on its icon and
 tints its cell, and the command palette lists it first with "needs attention" and a dot on its
 icon. `focus_urgent` (Super + U, `paw msg focus_urgent`) focuses the window that
-has been urgent the longest, switching workspace and showing it if it was minimized or in the
-scratchpad; a window that gets focus any other way, or closes, is no longer urgent. The focused
-window is never urgent, and a client that clears its X11 hint or demand ends it too.
+has been urgent the longest, switching workspace, or bringing it onto the workspace shown if it was
+minimized or in the scratchpad; a window that gets focus any other way, or closes, is no longer
+urgent. The focused window is never urgent, and a client that clears its X11 hint or demand ends
+it too.
 
 `paw msg get urgent` prints the urgent windows, the longest waiting first, in the columns of
 `get windows`. Subscribers to the control socket receive `urgent COUNT` in every state, then an
@@ -1476,9 +1478,10 @@ Alt + Tab (`switcher`) opens the window switcher in the middle of the focused mo
 lists every window, on every monitor and workspace and including minimized ones, most
 recently focused first, with the window focused before the current one selected. Keep Alt
 held and press Tab to move on (Shift + Tab, `switcher_prev`, Left or Up to move back, Right or
-Down on); releasing Alt focuses the selected window, switching its monitor to its workspace and
-restoring it if minimized. Return picks at once, Escape cancels, and clicking a window picks
-it. While the switcher is open, keys do not reach applications. The compositor keeps the
+Down on); releasing Alt focuses the selected window, switching its monitor to its workspace, or
+restoring a minimized one onto the workspace the focused monitor shows, as the taskbar does.
+Return picks at once, Escape cancels, and clicking a window picks it. While the switcher is open,
+keys do not reach applications. The compositor keeps the
 switcher and the shell draws it, only once it has been open for a moment, so a quick
 Alt + Tab flips between two windows without it flashing up; without the shell it still
 switches, unseen. With `switcher.hold = false`, bound to a key without modifiers, or sent as
@@ -1555,7 +1558,8 @@ you pick something:
   the filter, and a second Escape closes the overview.
 - The arrow keys move the selection through the grid (Tab and Shift + Tab step through it,
   Home and End jump to the ends). Return, or a click on a thumbnail, focuses that window,
-  switching to its workspace if needed. The mouse selects by pointing.
+  switching to its workspace if needed, or restoring a minimized one onto the workspace shown.
+  The mouse selects by pointing.
 - Delete, or a middle click on a thumbnail, closes that window.
 - The strip shows each workspace with its windows; Page Up and Page Down, Ctrl + Left and
   Right, or the mouse wheel show another workspace in the grid without switching to it. A
@@ -1783,7 +1787,7 @@ its height while typing, so that nothing jumps.
   not offered twice. A program is shown with its application's icon where one runs it.
 - **Windows**: the open windows by title and application, with nothing typed every one, those
   asking for attention first and the focused one last; Enter focuses the one chosen, showing its
-  workspace and bringing it back from minimized.
+  workspace, or bringing a minimized one back onto the workspace shown.
 
 Tab and Shift + Tab go through the modes, and a click on a pill picks one. In Apps and Run, what
 the text is besides words comes first: a calculation's value, as the [calculator](#calculator)
@@ -1936,10 +1940,10 @@ the pointer ends instead.
 
 `move_to_workspace_prev` and `move_to_workspace_next` (Super + Ctrl + Alt + Left / Right) take the
 focused window along to the previous or next workspace of its monitor, wrapping around the same
-way, and `move_to_workspace_empty` to the first workspace there with no windows on it, as
-Hyprland's `movetoworkspace, r+1` and `movetoworkspace, empty` do; nothing happens when every
-workspace holds some. Unlike `move_to_workspace`, which leaves the view where it is, the monitor
-switches to the workspace the window went to, and it keeps the focus there.
+way, and `move_to_workspace_empty` to the first workspace there with no windows on it but
+minimized ones, as Hyprland's `movetoworkspace, r+1` and `movetoworkspace, empty` do; nothing
+happens when every workspace holds some. Unlike `move_to_workspace`, which leaves the view where
+it is, the monitor switches to the workspace the window went to, and it keeps the focus there.
 
 Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
 the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
@@ -3727,7 +3731,8 @@ to slide them, and back, as the panel's wheel does past either end (see
 [Workspaces](#workspaces)). The query
 `paw msg get workspace` prints the focused monitor's workspace, `paw msg get workspaces`
 prints one tab-separated line per monitor (name, current workspace, focused, the
-workspaces holding windows, such as `1,3`, or `-`, and tiling, `on` or `off`),
+workspaces holding windows other than minimized ones, such as `1,3`, or `-`, and tiling, `on`
+or `off`),
 `paw msg get tiling` prints `on` or `off` for the focused monitor, `paw msg get outputs` prints one tab-separated line per monitor (name,
 enabled, x, y, logical width and height, scale, transform, mode, "make model serial",
 whether it shows a picture, `on`, or is [turned off](#turning-monitors-off) or disabled, `off`,

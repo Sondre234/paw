@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A minimized window restored from the taskbar comes to the workspace the focused monitor shows,
 and takes a tile there where it tiles, rather than sending the monitor back to the workspace it was
-minimized on. A window that is not minimized still brings its own workspace up."""
+minimized on; picked in the switcher it comes the same way. A window that is not minimized still
+brings its own workspace up. Minimized windows hold no workspace, for the bar and
+move_to_workspace_empty."""
 from pathlib import Path
 import subprocess
 import sys
@@ -34,10 +36,18 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
         rows = desktop.rows("workspaces")
         return {row[0]: int(row[1]) for row in rows}, next(r[0] for r in rows if r[2] == "1")
 
-    desktop.detail = lambda: f"windows: {windows()}, shown: {shown()}"
+    def occupied():
+        """The workspaces holding windows on each output, as `get workspaces` lists them."""
+        return {row[0]: row[3] for row in desktop.rows("workspaces")}
+
+    desktop.detail = lambda: f"windows: {windows()}, shown: {shown()}, occupied: {occupied()}"
 
     def control(title, *words):
         subprocess.run([window_probe, title, *words], env=desktop.env, check=True, timeout=30,
+                       stdout=subprocess.DEVNULL)
+
+    def activate(app_id):
+        subprocess.run([probe, "--activate", app_id], env=desktop.env, check=True, timeout=30,
                        stdout=subprocess.DEVNULL)
 
     def minimize(title):
@@ -72,16 +82,14 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     # A window minimized on a workspace not shown comes the same way when only activated, as
     # other taskbars do.
     minimize("C")
-    subprocess.run([probe, "--activate", "app-c"], env=desktop.env, check=True, timeout=30,
-                   stdout=subprocess.DEVNULL)
+    activate("app-c")
     wait_for(lambda: windows()["C"].focused and tiles_on("HEADLESS-1", 2, "BCD"),
              "C restored as a tile on workspace 2")
     assert shown()[0] == {"HEADLESS-1": 2, "HEADLESS-2": 1}, shown()
     assert windows()["A"].workspace == 1, windows()
 
     # A window that is not minimized brings its workspace up, as before.
-    subprocess.run([probe, "--activate", "app-a"], env=desktop.env, check=True, timeout=30,
-                   stdout=subprocess.DEVNULL)
+    activate("app-a")
     wait_for(lambda: windows()["A"].focused and shown()[0]["HEADLESS-1"] == 1,
              "activating A shows workspace 1")
     assert windows()["A"].workspace == 1, windows()
@@ -99,4 +107,36 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
              "D restored as a tile beside E on HEADLESS-2")
     assert shown() == ({"HEADLESS-1": 1, "HEADLESS-2": 3}, "HEADLESS-2"), shown()
     assert windows()["B"].workspace == windows()["C"].workspace == 2, windows()
+
+    # Minimized, a window is on no workspace, for the bar too: workspace 1, where A was alone,
+    # holds nothing, and move_to_workspace_empty takes B there.
+    assert occupied() == {"HEADLESS-1": "1,2", "HEADLESS-2": "3"}, occupied()
+    minimize("A")
+    wait_for(lambda: occupied() == {"HEADLESS-1": "2", "HEADLESS-2": "3"}, "workspace 1 empty")
+    activate("app-b")
+    wait_for(lambda: windows()["B"].focused and shown()[0]["HEADLESS-1"] == 2,
+             "B focused on workspace 2")
+    msg("move_to_workspace_empty")
+    wait_for(lambda: windows()["B"].focused and tiles_on("HEADLESS-1", 1, "B"),
+             "B moved to workspace 1")
+    assert shown() == ({"HEADLESS-1": 1, "HEADLESS-2": 3}, "HEADLESS-1"), shown()
+    assert occupied() == {"HEADLESS-1": "1,2", "HEADLESS-2": "3"}, occupied()
+
+    # Picked in the window switcher, as in the overview or anywhere else, a minimized window
+    # comes onto the workspace shown too: A, onto HEADLESS-2's.
+    activate("app-e")
+    wait_for(lambda: windows()["E"].focused, "E focused")
+    events = desktop.subscribe()
+
+    def listed():
+        """The titles the switcher lists, once it has said."""
+        return [line.split("\t")[1] for line in events.lines("switcher-window")]
+
+    msg("switcher")
+    wait_for(lambda: "A" in listed(), "A in the switcher")
+    msg("switcher_confirm", str(listed().index("A") + 1))
+    wait_for(lambda: windows()["A"].focused and tiles_on("HEADLESS-2", 3, "ADE"),
+             "A restored from the switcher as a tile on HEADLESS-2")
+    assert shown() == ({"HEADLESS-1": 1, "HEADLESS-2": 3}, "HEADLESS-2"), shown()
+    assert occupied() == {"HEADLESS-1": "1,2", "HEADLESS-2": "3"}, occupied()
 print("Windows restored from the taskbar come to the workspace shown, as tiles")

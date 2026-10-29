@@ -80,6 +80,12 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
         swallow_release(toplevel->swallow_peer); // asked for by hand: it comes back
     if (toplevel->group_hidden)
         group_show(toplevel); // another tab of its group: it takes the group's slot
+    // A minimized window is on no workspace (used_workspaces): from the taskbar, the overview, the
+    // switcher or anywhere else it comes back onto the one the focused output shows, as a hidden
+    // scratchpad window does, rather than taking an output back to the one it was minimized on.
+    struct wlr_output *shown = focused_output(server);
+    if (toplevel->minimized && !toplevel->scratchpad && !toplevel->sticky && shown)
+        bring_toplevel(toplevel, shown);
     // A hidden scratchpad window activated from the taskbar comes to the focused output, as
     // scratchpad_show brings it, and drops in there unless a peek shows it in place already;
     // one still sliding out turns back, peeked at or not.
@@ -147,10 +153,10 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
         if (output)
             reflow_output(server, output);
     }
-    if (was_urgent) {
+    if (was_urgent)
         wlr_log(WLR_INFO, "Urgent window focused");
-        notify_subscribers(server);
-    }
+    if (was_urgent || was_minimized)
+        notify_subscribers(server); // the bar's urgent mark, or the workspace it is on again
     // Peeked at, as a taskbar's picture of it is clicked, it is shown for good now, where the
     // peek showed it: the others fade back around it.
     if (server->peek_window == toplevel)

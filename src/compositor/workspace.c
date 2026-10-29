@@ -518,8 +518,10 @@ static unsigned used_workspaces(struct sh_server *server, struct wlr_output *out
     unsigned used = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (toplevel->scratchpad && toplevel->minimized)
-            continue; // hidden in the scratchpad, on no workspace
+        // Minimized, or hidden in the scratchpad, it is on no workspace: it comes back onto the
+        // one shown (focus_toplevel_raise).
+        if (toplevel->minimized)
+            continue;
         if (!strcmp(toplevel->output, output->name) && toplevel->workspace < 32)
             used |= 1u << toplevel->workspace;
     }
@@ -528,7 +530,7 @@ static unsigned used_workspaces(struct sh_server *server, struct wlr_output *out
 
 /* move_to_workspace_next and _prev (`way` 1 or -1) and _empty (`way` 0): the focused window
  * moves to the workspace beside its own, wrapping around, or to the first of its output with no
- * windows, and the output shows it there, as Hyprland's movetoworkspace does. */
+ * windows but minimized ones, and the output shows it there, as Hyprland's movetoworkspace does. */
 void move_to_workspace_beside(struct sh_server *server, int way) {
     struct sh_toplevel *toplevel = current_toplevel(server);
     struct wlr_output *output = toplevel ? find_output(server, toplevel->output) : NULL;
