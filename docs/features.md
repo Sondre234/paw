@@ -455,7 +455,8 @@ file pops in at the first free cell, one taken away goes, and the others stay wh
 A click selects an icon, its name shown in full on the accent; a click beside them selects none.
 Dragging across the desktop draws a band in the accent colour fading into a second hue, rounded,
 with a bubble at the pointer counting what it holds, and each icon it touches hops as it is caught;
-with Ctrl or Shift held the band adds them to those selected. Ctrl + click, or the middle button,
+with Ctrl or Shift held the band adds them to those selected. Every monitor's desktop draws the
+band, even where no icons show, catching nothing there. Ctrl + click, or the middle button,
 picks one more icon, or puts one back, keeping the others, and Shift + click takes every icon in
 the rectangle from the one clicked before to this one. Dragged, the selected icons gather under the
 pointer into a fanned stack with their count, trailing it one after another, while dashed pads on
