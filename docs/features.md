@@ -1426,9 +1426,10 @@ a tinted background and a pulsing dot, the workspace indicator marks its workspa
 frames its thumbnail and colours its workspace, the window switcher puts a dot on its icon and
 tints its cell, and the command palette lists it first with "needs attention" and a dot on its
 icon. `focus_urgent` (Super + U, `paw msg focus_urgent`) focuses the window that
-has been urgent the longest, switching workspace and showing it if it was minimized or in the
-scratchpad; a window that gets focus any other way, or closes, is no longer urgent. The focused
-window is never urgent, and a client that clears its X11 hint or demand ends it too.
+has been urgent the longest, switching workspace, or bringing it onto the workspace shown if it was
+minimized or in the scratchpad; a window that gets focus any other way, or closes, is no longer
+urgent. The focused window is never urgent, and a client that clears its X11 hint or demand ends
+it too.
 
 `paw msg get urgent` prints the urgent windows, the longest waiting first, in the columns of
 `get windows`. Subscribers to the control socket receive `urgent COUNT` in every state, then an
@@ -1477,9 +1478,10 @@ Alt + Tab (`switcher`) opens the window switcher in the middle of the focused mo
 lists every window, on every monitor and workspace and including minimized ones, most
 recently focused first, with the window focused before the current one selected. Keep Alt
 held and press Tab to move on (Shift + Tab, `switcher_prev`, Left or Up to move back, Right or
-Down on); releasing Alt focuses the selected window, switching its monitor to its workspace and
-restoring it if minimized. Return picks at once, Escape cancels, and clicking a window picks
-it. While the switcher is open, keys do not reach applications. The compositor keeps the
+Down on); releasing Alt focuses the selected window, switching its monitor to its workspace, or
+restoring a minimized one onto the workspace the focused monitor shows, as the taskbar does.
+Return picks at once, Escape cancels, and clicking a window picks it. While the switcher is open,
+keys do not reach applications. The compositor keeps the
 switcher and the shell draws it, only once it has been open for a moment, so a quick
 Alt + Tab flips between two windows without it flashing up; without the shell it still
 switches, unseen. With `switcher.hold = false`, bound to a key without modifiers, or sent as
@@ -1556,7 +1558,8 @@ you pick something:
   the filter, and a second Escape closes the overview.
 - The arrow keys move the selection through the grid (Tab and Shift + Tab step through it,
   Home and End jump to the ends). Return, or a click on a thumbnail, focuses that window,
-  switching to its workspace if needed. The mouse selects by pointing.
+  switching to its workspace if needed, or restoring a minimized one onto the workspace shown.
+  The mouse selects by pointing.
 - Delete, or a middle click on a thumbnail, closes that window.
 - The strip shows each workspace with its windows; Page Up and Page Down, Ctrl + Left and
   Right, or the mouse wheel show another workspace in the grid without switching to it. A
@@ -1784,7 +1787,7 @@ its height while typing, so that nothing jumps.
   not offered twice. A program is shown with its application's icon where one runs it.
 - **Windows**: the open windows by title and application, with nothing typed every one, those
   asking for attention first and the focused one last; Enter focuses the one chosen, showing its
-  workspace and bringing it back from minimized.
+  workspace, or bringing a minimized one back onto the workspace shown.
 
 Tab and Shift + Tab go through the modes, and a click on a pill picks one. In Apps and Run, what
 the text is besides words comes first: a calculation's value, as the [calculator](#calculator)

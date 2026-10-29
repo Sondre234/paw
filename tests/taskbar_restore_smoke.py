@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A minimized window restored from the taskbar comes to the workspace the focused monitor shows,
 and takes a tile there where it tiles, rather than sending the monitor back to the workspace it was
-minimized on. A window that is not minimized still brings its own workspace up. Minimized windows
-hold no workspace, for the bar and move_to_workspace_empty."""
+minimized on; picked in the switcher it comes the same way. A window that is not minimized still
+brings its own workspace up. Minimized windows hold no workspace, for the bar and
+move_to_workspace_empty."""
 from pathlib import Path
 import subprocess
 import sys
@@ -119,5 +120,23 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     wait_for(lambda: windows()["B"].focused and tiles_on("HEADLESS-1", 1, "B"),
              "B moved to workspace 1")
     assert shown() == ({"HEADLESS-1": 1, "HEADLESS-2": 3}, "HEADLESS-1"), shown()
+    assert occupied() == {"HEADLESS-1": "1,2", "HEADLESS-2": "3"}, occupied()
+
+    # Picked in the window switcher, as in the overview or anywhere else, a minimized window
+    # comes onto the workspace shown too: A, onto HEADLESS-2's.
+    activate("app-e")
+    wait_for(lambda: windows()["E"].focused, "E focused")
+    events = desktop.subscribe()
+
+    def listed():
+        """The titles the switcher lists, once it has said."""
+        return [line.split("\t")[1] for line in events.lines("switcher-window")]
+
+    msg("switcher")
+    wait_for(lambda: "A" in listed(), "A in the switcher")
+    msg("switcher_confirm", str(listed().index("A") + 1))
+    wait_for(lambda: windows()["A"].focused and tiles_on("HEADLESS-2", 3, "ADE"),
+             "A restored from the switcher as a tile on HEADLESS-2")
+    assert shown() == ({"HEADLESS-1": 1, "HEADLESS-2": 3}, "HEADLESS-2"), shown()
     assert occupied() == {"HEADLESS-1": "1,2", "HEADLESS-2": "3"}, occupied()
 print("Windows restored from the taskbar come to the workspace shown, as tiles")
