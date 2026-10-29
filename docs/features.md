@@ -297,8 +297,9 @@ keyboard no window has it, so no button is marked as focused. A screen reader na
 button or window as the selection moves.
 
 The workspace indicator lists the monitor's workspaces, the current one on a pill, with a dot
-under those with windows: click one to switch to it, or scroll anywhere on the bar to page through
-them. Resting the pointer on one shows a picture of it ([below](#workspace-pictures)), and
+under those with windows, minimized ones not counting (they come back onto the workspace shown,
+wherever they were minimized): click one to switch to it, or scroll anywhere on the bar to page
+through them. Resting the pointer on one shows a picture of it ([below](#workspace-pictures)), and
 dragging a window's button onto one moves the window there. A right click on the bar's empty space opens its menu: tiling on or off, the start menu,
 show desktop, and the appearance profiles beside their entry.
 
@@ -1936,10 +1937,10 @@ the pointer ends instead.
 
 `move_to_workspace_prev` and `move_to_workspace_next` (Super + Ctrl + Alt + Left / Right) take the
 focused window along to the previous or next workspace of its monitor, wrapping around the same
-way, and `move_to_workspace_empty` to the first workspace there with no windows on it, as
-Hyprland's `movetoworkspace, r+1` and `movetoworkspace, empty` do; nothing happens when every
-workspace holds some. Unlike `move_to_workspace`, which leaves the view where it is, the monitor
-switches to the workspace the window went to, and it keeps the focus there.
+way, and `move_to_workspace_empty` to the first workspace there with no windows on it but
+minimized ones, as Hyprland's `movetoworkspace, r+1` and `movetoworkspace, empty` do; nothing
+happens when every workspace holds some. Unlike `move_to_workspace`, which leaves the view where
+it is, the monitor switches to the workspace the window went to, and it keeps the focus there.
 
 Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
 the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
@@ -3727,7 +3728,8 @@ to slide them, and back, as the panel's wheel does past either end (see
 [Workspaces](#workspaces)). The query
 `paw msg get workspace` prints the focused monitor's workspace, `paw msg get workspaces`
 prints one tab-separated line per monitor (name, current workspace, focused, the
-workspaces holding windows, such as `1,3`, or `-`, and tiling, `on` or `off`),
+workspaces holding windows other than minimized ones, such as `1,3`, or `-`, and tiling, `on`
+or `off`),
 `paw msg get tiling` prints `on` or `off` for the focused monitor, `paw msg get outputs` prints one tab-separated line per monitor (name,
 enabled, x, y, logical width and height, scale, transform, mode, "make model serial",
 whether it shows a picture, `on`, or is [turned off](#turning-monitors-off) or disabled, `off`,

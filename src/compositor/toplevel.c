@@ -790,6 +790,7 @@ void minimize_toplevel(struct sh_toplevel *toplevel) {
         focus_previous(toplevel->server);
     minimize_raise(toplevel); // over the window that came forward for the focus
     idle_inhibitors_follow(toplevel->server); // a video minimized lets the screens dim
+    notify_subscribers(toplevel->server); // its workspace may be empty now
 }
 
 /* Fullscreen the client asked for covers the whole output; fullscreen from a binding or the

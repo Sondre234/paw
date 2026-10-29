@@ -147,10 +147,10 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
         if (output)
             reflow_output(server, output);
     }
-    if (was_urgent) {
+    if (was_urgent)
         wlr_log(WLR_INFO, "Urgent window focused");
-        notify_subscribers(server);
-    }
+    if (was_urgent || was_minimized)
+        notify_subscribers(server); // the bar's urgent mark, or the workspace it is on again
     // Peeked at, as a taskbar's picture of it is clicked, it is shown for good now, where the
     // peek showed it: the others fade back around it.
     if (server->peek_window == toplevel)
