@@ -8,7 +8,8 @@ import QtQuick.Shapes
 // one back, Shift + click takes the icons in the rectangle from the one clicked before, and a drag
 // across the desktop selects every icon its band touches (with Ctrl or Shift, adding them): a band
 // in the accent colour fading into a second hue, with rounded corners and a bubble at the pointer
-// counting what it holds, each icon it catches hopping as it does. Dragged, the selected icons
+// counting what it holds, each icon it catches hopping as it does. The other monitors' desktops,
+// and this one with none shown, draw the band too, catching nothing. Dragged, the selected icons
 // gather under the pointer into a stack with their count, while dashed pads on the grid show the
 // cells they will land in, gliding from cell to cell; let go, they glide into those cells, the
 // furthest last. On Wayland the drag is the compositor's, so that it reaches any window: the
@@ -882,10 +883,12 @@ FocusScope {
             if (!(pressedButtons & Qt.LeftButton))
                 return
             grid.bandTo = Qt.point(mouse.x, mouse.y)
-            if (!grid.banding && grid.shown &&
+            // Drawn on every monitor's desktop, and with the icons hidden or turned off, so that a
+            // drag looks the same everywhere; it catches icons only where they are.
+            if (!grid.banding &&
                 Math.hypot(grid.bandTo.x - grid.bandFrom.x, grid.bandTo.y - grid.bandFrom.y) >= Qt.styleHints.startDragDistance)
                 grid.banding = true
-            if (grid.banding)
+            if (grid.banding && grid.shown)
                 grid.bandSelect()
         }
         onReleased: grid.banding = false

@@ -8079,6 +8079,14 @@ ListModel {
         QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:a.txt"));
         if (!selected({}))
             return fail("a hidden desktop icon took a click");
+        // A drag across them still draws the band, as everywhere on the desktop, but it catches
+        // none.
+        QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, bandFrom);
+        QTest::mouseMove(&desktop, (bandFrom + bandTo) / 2);
+        QTest::mouseMove(&desktop, bandTo);
+        if (!band->isVisible() || !selected({}))
+            return fail("a band across hidden desktop icons was not drawn, or caught them");
+        QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, bandTo);
         QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, empty);
         QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, empty);
         if (entry("desktopMenu", "Tidy up icons") || !choose("desktopMenu", "Show desktop icons") ||
@@ -8735,6 +8743,18 @@ ListModel {
             entry("desktopMenu", "Hide desktop icons") || entry("desktopMenu", "Open desktop folder"))
             return fail("the desktop's menu offered icons that are turned off");
         QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        // A drag draws the band still, as on the other monitors' desktops, which have no icons
+        // either (`active` false), catching nothing.
+        const QPoint bare = empty + QPoint(-200, 60); // off the click before, not a double-click
+        QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, bare);
+        QTest::mouseMove(&desktop, bare + QPoint(40, 30));
+        QTest::mouseMove(&desktop, bare + QPoint(120, 90));
+        if (grid->property("active").toBool() || !band->isVisible() ||
+            grid->property("selectionOrder").value<QJSValue>().property("length").toInt() != 0)
+            return fail("a drag across a desktop without icons did not draw the band, or selected something");
+        QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, bare + QPoint(120, 90));
+        if (band->isVisible())
+            return fail("the band on a desktop without icons did not go as it was let go");
         if (!reconfigure(lua) || !waitFor([&] { return laidOut(0); }))
             return fail("the desktop's icons did not come back with the configuration");
     }
