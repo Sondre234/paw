@@ -49,6 +49,123 @@ static struct wlr_scene_node *past_bound(struct wlr_scene_node *node, double lx,
     return &toplevel->scene_tree->node;
 }
 
+/* The topmost node at a layout position, looking through what is not there to point at. */
+static struct wlr_scene_node *pointable_node_at(struct sh_server *server, double lx, double ly,
+                                                double *sx, double *sy) {
+    struct wlr_scene_node *node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
+    // A rounded border is one hollow rect over the whole window, which hit testing takes as
+    // solid: pointing through its hole reaches what is below, the window itself first. So does
+    // pointing at a tile past the monitor it keeps to.
+    struct wlr_scene_node *hidden[8];
+    int hidden_count = 0;
+    while (hidden_count < 8) {
+        struct wlr_scene_node *hide = in_frame_hole(node, lx, ly) ? node : past_bound(node, lx, ly);
+        if (!hide)
+            break;
+        hide->enabled = false; // only for the next lookup: no damage, nothing redrawn
+        hidden[hidden_count++] = hide;
+        node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
+    }
+    while (hidden_count > 0)
+        hidden[--hidden_count]->enabled = true;
+    return node;
+}
+
+/* Whether `node` is nothing to act on: the bare desktop, a layer below the windows, or a
+ * window's border. */
+static bool bare_node(struct wlr_scene_node *node) {
+    if (!node)
+        return true;
+    struct sh_node *owner = scene_owner(node);
+    bool surface = node->type == WLR_SCENE_NODE_BUFFER &&
+                   wlr_scene_surface_try_from_buffer(wlr_scene_buffer_from_node(node));
+    if (!owner)
+        return !surface; // a popup or a lock surface is something; the background is not
+    if (owner->kind == SH_NODE_LAYER) {
+        struct sh_layer *layer = owner->owner;
+        return layer->surface->current.layer < ZWLR_LAYER_SHELL_V1_LAYER_TOP;
+    }
+    struct sh_toplevel *toplevel = owner->owner;
+    return node->type == WLR_SCENE_NODE_RECT ||
+           (toplevel->gradient && node->parent == toplevel->gradient);
+}
+
+/* The pointer pushed against an edge of the layout, where it stops, reaches the window that
+ * tiling, snapping or maximizing put along that edge, across the gap and the border they leave
+ * there: a tile's close button in its top-right corner is in the screen's corner. Gives the node
+ * at the point of that window nearest (lx, ly), where `bare` (bare_node) is, or NULL where there
+ * is none. While `animating`, what could be at that point is put at rest too, for the caller to
+ * resume. */
+static struct wlr_scene_node *edge_window_node_at(struct sh_server *server,
+                                                  struct wlr_scene_node *bare, bool animating,
+                                                  double lx, double ly, double *sx, double *sy) {
+    struct wlr_output_layout *layout = server->output_layout;
+    struct wlr_output *output = wlr_output_layout_output_at(layout, lx, ly);
+    if (!output)
+        return NULL;
+    const struct sh_settings *settings = server_settings(server);
+    int reach = settings->gap_outer;
+    for (int i = 0; i < 4; ++i)
+        if (settings->lone_margin[i] > reach)
+            reach = settings->lone_margin[i];
+    reach += settings->border_width;
+    // Over another window's border, the pointer is not past that window's edge.
+    struct sh_node *framed = bare ? scene_owner(bare) : NULL;
+    if (framed && framed->kind != SH_NODE_TOPLEVEL)
+        framed = NULL;
+    struct wlr_box box;
+    wlr_output_layout_get_box(layout, output, &box);
+    int right = box.x + box.width, bottom = box.y + box.height;
+    bool stops_left = lx < box.x + reach &&
+                      !wlr_output_layout_contains_point(layout, NULL, box.x - 1, ly);
+    bool stops_right = lx >= right - reach &&
+                       !wlr_output_layout_contains_point(layout, NULL, right, ly);
+    bool stops_top = ly < box.y + reach &&
+                     !wlr_output_layout_contains_point(layout, NULL, lx, box.y - 1);
+    bool stops_bottom = ly >= bottom - reach &&
+                        !wlr_output_layout_contains_point(layout, NULL, lx, bottom);
+    if (!stops_left && !stops_right && !stops_top && !stops_bottom)
+        return NULL;
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (!toplevel_mapped(toplevel) || !toplevel_visible(toplevel) || toplevel->fullscreen ||
+            !(toplevel->tiled ? !toplevel->pseudo : toplevel->arranged) ||
+            (framed && framed->owner != toplevel))
+            continue;
+        struct wlr_box g = toplevel_geometry(toplevel);
+        double left = toplevel->scene_tree->node.x + g.x;
+        double top = toplevel->scene_tree->node.y + g.y;
+        double x = lx, y = ly;
+        if (lx < left) {
+            if (!stops_left || left - box.x > reach)
+                continue;
+            x = left;
+        } else if (lx >= left + g.width) {
+            if (!stops_right || right - (left + g.width) > reach)
+                continue;
+            x = left + g.width - 1;
+        }
+        if (ly < top) {
+            if (!stops_top || top - box.y > reach)
+                continue;
+            y = top;
+        } else if (ly >= top + g.height) {
+            if (!stops_bottom || bottom - (top + g.height) > reach)
+                continue;
+            y = top + g.height - 1;
+        }
+        if (x == lx && y == ly)
+            continue;
+        if (animating)
+            sh_animator_rest_at(server->animator, x, y);
+        struct wlr_scene_node *node = pointable_node_at(server, x, y, sx, sy);
+        struct sh_node *owner = node ? scene_owner(node) : NULL;
+        if (owner && owner->kind == SH_NODE_TOPLEVEL && owner->owner == toplevel)
+            return node;
+    }
+    return NULL;
+}
+
 /* The topmost node at a layout position, where windows will be once their animations end:
  * input never waits for an animation, nor lands in the middle of one. */
 static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx, double ly,
@@ -82,22 +199,17 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
             }
         }
     }
-    struct wlr_scene_node *node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
-    // A rounded border is one hollow rect over the whole window, which hit testing takes as
-    // solid: pointing through its hole reaches what is below, the window itself first. So does
-    // pointing at a tile past the monitor it keeps to.
-    struct wlr_scene_node *hidden[8];
-    int hidden_count = 0;
-    while (hidden_count < 8) {
-        struct wlr_scene_node *hide = in_frame_hole(node, lx, ly) ? node : past_bound(node, lx, ly);
-        if (!hide)
-            break;
-        hide->enabled = false; // only for the next lookup: no damage, nothing redrawn
-        hidden[hidden_count++] = hide;
-        node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
+    struct wlr_scene_node *node = pointable_node_at(server, lx, ly, sx, sy);
+    if (bare_node(node)) {
+        double edge_sx, edge_sy;
+        struct wlr_scene_node *edge =
+            edge_window_node_at(server, node, animating, lx, ly, &edge_sx, &edge_sy);
+        if (edge) {
+            node = edge;
+            *sx = edge_sx;
+            *sy = edge_sy;
+        }
     }
-    while (hidden_count > 0)
-        hidden[--hidden_count]->enabled = true;
     while (lent_count > 0)
         lent[--lent_count]->enabled = true;
     if (confetti)
@@ -327,14 +439,16 @@ static struct sh_toplevel *deco_at(struct sh_server *server, double x, double y,
 
 /* `toplevel`, if the pointer is on its surface within the strip along its top edge
  * (windows.drag_strip), which moves a window without a title bar as if it had one. A window
- * drawing its own frame has none, whatever controls a rule gives it: its top is its own. */
+ * drawing its own frame has none, whatever controls a rule gives it: its top is its own. Above
+ * that edge is the strip too, where the pointer pushed against the screen's top edge reaches the
+ * window across the gap (edge_window_node_at). */
 static struct sh_toplevel *drag_strip_at(struct sh_toplevel *toplevel, struct wlr_surface *surface,
                                          double y) {
     if (!toplevel || !wants_decoration(toplevel) || toplevel->fullscreen || !surface ||
         wlr_surface_get_root_surface(surface) != toplevel_surface(toplevel))
         return NULL;
     double top = toplevel->scene_tree->node.y + toplevel_geometry(toplevel).y;
-    return y >= top && y < top + server_settings(toplevel->server)->drag_strip ? toplevel : NULL;
+    return y < top + server_settings(toplevel->server)->drag_strip ? toplevel : NULL;
 }
 
 /* Server-decorated windows draw no frame of their own to grab, so a band just outside their

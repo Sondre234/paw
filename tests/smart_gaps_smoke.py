@@ -2,7 +2,8 @@
 """layout.smart_gaps: a tiled window alone on its workspace has no gaps and fills the usable area
 inside its border, from its first configure on; a second tile brings the gaps back for both, and
 they go again as it closes or floats, and follow gap_inner, gap_outer and border_width as they are
-reloaded. Turned off, a lone tile keeps them. layout.lone_margin frames a lone tile instead."""
+reloaded. Turned off, a lone tile keeps them. layout.lone_margin frames a lone tile instead. The
+pointer in the gap and border at the output's edge reaches the tile there."""
 from pathlib import Path
 import re
 import subprocess
@@ -75,6 +76,16 @@ with harness.Compositor(compositor, config()) as desktop:
     desktop.wait_for(lambda: len(windows()) == 2 and gapped(*sorted(windows())),
                      "gaps around two tiles")
     assert configures(1)[0] == windows()[1][2:], (configures(1), windows())
+
+    # The pointer pushed into a corner of the output, in the gap and the border there, reaches
+    # the tile in that corner, as a close button in it would. Between the tiles is no edge.
+    def pid_at(x, y):
+        return msg("get", "pid_at", str(x), str(y))
+
+    left, right = sorted(windows())
+    for corner, tile in (((WIDTH - 1, 0), right), ((0, HEIGHT - 1), left)):
+        assert pid_at(*corner) == pid_at(tile[0] + 1, tile[1] + 1) != "", (corner, windows())
+    assert pid_at(right[0] - INNER // 2 - BORDER, 0) == "", windows()
 
     # Moving a tile across the other, which is alone in the tiling meanwhile, keeps the gaps.
     before = windows()
