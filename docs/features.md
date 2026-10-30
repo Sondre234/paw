@@ -20,7 +20,8 @@ shows the wallpaper and, on the main monitor, [icons](#desktop-icons) for the co
 and the desktop folder's files, and [sticky notes](#desktop-notes); a right click on it offers
 Show desktop, a new folder or note, hiding or showing the icons, and the appearance profiles. The
 wallpaper picker shows the pictures of `shell.wallpapers` with a tab for each subfolder, the ones
-filtered by lately first as it opens, the last leftmost (kept in `~/.local/state/paw/wallpaper-folders`). A new wallpaper, from the
+filtered by lately first as it opens, the last leftmost (kept in `~/.local/state/paw/wallpaper-folders`); it lists them by
+name, or with `shell.wallpapers_order = "date"` the ones saved in the folder last first. A new wallpaper, from the
 wallpaper picker or the configuration, fades in over the one shown once it has loaded, also from
 the drawn one or to it, and one picked during the fade comes in over both. `shell.wallpaper_mode`
 says how the picture covers each monitor: cropped to fill it (`"fill"`, the default), whole and as

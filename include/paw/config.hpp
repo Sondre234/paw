@@ -344,6 +344,7 @@ struct ShellConfig {
     // absolute, "~/..." or relative to the configuration; empty: the drawings.
     std::string bar_icons;
     std::string wallpapers; // the picker's folder: absolute or "~/..."; empty: $XDG_PICTURES_DIR/wallpapers
+    bool wallpapers_by_date = false; // wallpapers_order = "date", newest saved first; false: "name"
     ShellWidgets widgets;
     TilingBar tiling_bar;
     std::vector<Launcher> launchers;

@@ -13,9 +13,10 @@
 #include <algorithm>
 #include <atomic>
 
-QVariantList findWallpapers(const QString &root) {
+QVariantList findWallpapers(const QString &root, bool byDate) {
     struct Entry {
         QString path, name, folder;
+        qint64 saved = 0; // with byDate, seconds since the epoch
     };
     std::vector<Entry> entries;
     const QDir base(root);
@@ -24,7 +25,14 @@ QVariantList findWallpapers(const QString &root) {
     while (it.hasNext() && entries.size() < 10000) {
         const QFileInfo file(it.next());
         auto folder = base.relativeFilePath(file.path());
-        entries.push_back({file.filePath(), file.completeBaseName(), folder == "." ? QString() : folder});
+        qint64 saved = 0;
+        if (byDate) {
+            // A picture downloaded or copied in often keeps an older modification time from
+            // where it came; the time the file was made says when it came into the folder.
+            const auto born = file.birthTime();
+            saved = (born.isValid() ? born : file.lastModified()).toSecsSinceEpoch();
+        }
+        entries.push_back({file.filePath(), file.completeBaseName(), folder == "." ? QString() : folder, saved});
     }
     QCollator collator;
     collator.setNumericMode(true);
@@ -34,6 +42,10 @@ QVariantList findWallpapers(const QString &root) {
             return collator.compare(a.folder, b.folder) < 0;
         return collator.compare(a.name, b.name) < 0;
     });
+    // Those saved in the same second, as a folder copied in at once, stay in that order.
+    if (byDate)
+        std::stable_sort(entries.begin(), entries.end(),
+                         [](const Entry &a, const Entry &b) { return a.saved > b.saved; });
     QVariantList list;
     list.reserve(static_cast<qsizetype>(entries.size()));
     for (const auto &entry : entries)

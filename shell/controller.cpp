@@ -354,7 +354,7 @@ QString ShellController::wallpaperFolder() const {
     return QFileInfo(pictures + "/wallpapers").isDir() ? pictures + "/wallpapers" : pictures;
 }
 void ShellController::findWallpapers() {
-    wallpapers_ = ::findWallpapers(wallpaperFolder());
+    wallpapers_ = ::findWallpapers(wallpaperFolder(), config_.shell.wallpapers_by_date);
     Q_EMIT wallpapersChanged();
 }
 QString ShellController::pickedWallpapersPath() {

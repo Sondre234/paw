@@ -6,9 +6,10 @@
 #include <QVariantList>
 
 // The wallpaper picker's images: every picture under `root` and its subfolders, as
-// {path, name, folder} sorted by folder and then by name, numbers in order ("2" before "10").
+// {path, name, folder} sorted by folder and then by name, numbers in order ("2" before "10"),
+// or with `byDate` (shell.wallpapers_order = "date") the ones saved in the folder last first.
 // `folder` is the subfolder's path from `root`, "" for the pictures directly in it.
-QVariantList findWallpapers(const QString &root);
+QVariantList findWallpapers(const QString &root, bool byDate);
 
 // image://thumbs/<percent-encoded path>: a picture shrunk to fit 256 pixels, kept in the
 // freedesktop thumbnail cache ($XDG_CACHE_HOME/thumbnails/large) that file managers share.

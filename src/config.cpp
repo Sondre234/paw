@@ -863,6 +863,8 @@ void read_shell(lua_State *L, ShellConfig &shell) {
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
             fail("shell.wallpapers must be absolute or start with ~/");
     }
+    named(L, "wallpapers_order", "shell.wallpapers_order", shell.wallpapers_by_date,
+          {{"name", false}, {"date", true}});
     lua_getfield(L, -1, "launchers");
     if (!lua_isnil(L, -1)) {
         auto size = array_size(L, -1, 64);
