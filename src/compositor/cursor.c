@@ -94,10 +94,11 @@ static bool bare_node(struct wlr_scene_node *node) {
  * tiling, snapping or maximizing put along that edge, across the gap and the border they leave
  * there: a tile's close button in its top-right corner is in the screen's corner. Gives the node
  * at the point of that window nearest (lx, ly), where `bare` (bare_node) is, or NULL where there
- * is none. */
+ * is none. While `animating`, what could be at that point is put at rest too, for the caller to
+ * resume. */
 static struct wlr_scene_node *edge_window_node_at(struct sh_server *server,
-                                                  struct wlr_scene_node *bare, double lx, double ly,
-                                                  double *sx, double *sy) {
+                                                  struct wlr_scene_node *bare, bool animating,
+                                                  double lx, double ly, double *sx, double *sy) {
     struct wlr_output_layout *layout = server->output_layout;
     struct wlr_output *output = wlr_output_layout_output_at(layout, lx, ly);
     if (!output)
@@ -155,6 +156,8 @@ static struct wlr_scene_node *edge_window_node_at(struct sh_server *server,
         }
         if (x == lx && y == ly)
             continue;
+        if (animating)
+            sh_animator_rest_at(server->animator, x, y);
         struct wlr_scene_node *node = pointable_node_at(server, x, y, sx, sy);
         struct sh_node *owner = node ? scene_owner(node) : NULL;
         if (owner && owner->kind == SH_NODE_TOPLEVEL && owner->owner == toplevel)
@@ -200,7 +203,7 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
     if (bare_node(node)) {
         double edge_sx, edge_sy;
         struct wlr_scene_node *edge =
-            edge_window_node_at(server, node, lx, ly, &edge_sx, &edge_sy);
+            edge_window_node_at(server, node, animating, lx, ly, &edge_sx, &edge_sy);
         if (edge) {
             node = edge;
             *sx = edge_sx;
