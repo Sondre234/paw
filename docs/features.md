@@ -2040,7 +2040,11 @@ maximized windows are not tiles, and two windows in monocle keep their gaps. A l
 scroll layout loses its gaps and fills the screen (`layout.scroll.fill_lone`). `layout.lone_margin`
 keeps a lone tile that far
 from the edges instead, so a single window on a wide monitor need not fill it: one number, or
-`{ top, right, bottom, left }`, e.g. wide at the sides and narrow above and below.
+`{ top, right, bottom, left }`, e.g. wide at the sides and narrow above and below. Gaps and
+borders take nothing from the screen's edges, where the pointer stops: pushed against one, the
+pointer reaches the tile along it (or a snapped or maximized window) across the gap and the
+border, so a close button in a tile's top-right corner is under the pointer in the screen's
+corner. Between two monitors, and between tiles, the gaps stay the desktop's.
 
 - Mod + right drag on a tile, or dragging its edge, moves the split lines around it.
 - Moving a tile (Mod + left drag or its title bar) lifts it out, its place in the tiling kept
@@ -3751,7 +3755,7 @@ the order of `get windows`: app ID, title, what the [dynamic rules](#window-rule
 floating, sticky and kept above (`on`, `off`, or `-` while none decides it), and which of them
 they hold the window to (`floating,sticky,above`, or `-`), one changed by hand being no longer
 held. `paw msg get pid_at X Y` prints the process ID of the window
-drawn at that layout point, or nothing over bare desktop. `paw msg get layers` prints one line per panel or other layer-shell surface:
+the pointer at that layout point would point at, or nothing over bare desktop. `paw msg get layers` prints one line per panel or other layer-shell surface:
 namespace, output, layer (0 background to 3 overlay), whether it is shown, whether it holds
 the keyboard, and the keyboard it asks for (`none`, `exclusive` or `on_demand`).
 `paw msg get power` prints one line per power action, in the menu's order (`lock`, `suspend`,
