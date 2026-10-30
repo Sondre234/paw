@@ -436,14 +436,16 @@ static struct sh_toplevel *deco_at(struct sh_server *server, double x, double y,
 
 /* `toplevel`, if the pointer is on its surface within the strip along its top edge
  * (windows.drag_strip), which moves a window without a title bar as if it had one. A window
- * drawing its own frame has none, whatever controls a rule gives it: its top is its own. */
+ * drawing its own frame has none, whatever controls a rule gives it: its top is its own. Above
+ * that edge is the strip too, where the pointer pushed against the screen's top edge reaches the
+ * window across the gap (edge_window_node_at). */
 static struct sh_toplevel *drag_strip_at(struct sh_toplevel *toplevel, struct wlr_surface *surface,
                                          double y) {
     if (!toplevel || !wants_decoration(toplevel) || toplevel->fullscreen || !surface ||
         wlr_surface_get_root_surface(surface) != toplevel_surface(toplevel))
         return NULL;
     double top = toplevel->scene_tree->node.y + toplevel_geometry(toplevel).y;
-    return y >= top && y < top + server_settings(toplevel->server)->drag_strip ? toplevel : NULL;
+    return y < top + server_settings(toplevel->server)->drag_strip ? toplevel : NULL;
 }
 
 /* Server-decorated windows draw no frame of their own to grab, so a band just outside their
