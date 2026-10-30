@@ -1258,6 +1258,11 @@ const Option options[] = {
     {"shell.wallpapers", "string", "unset", "\"~/Pictures/wallpapers\"", none, none,
      "The wallpaper picker's folder, searched with its subfolders: absolute, or starting with "
      "`~/`; unset uses `$XDG_PICTURES_DIR/wallpapers`, else `$XDG_PICTURES_DIR`."},
+    {"shell.wallpapers_order", "enum", "\"name\"", "\"date\"", none, none,
+     "The order of the wallpaper picker's pictures: `\"name\"` by subfolder, then by name, "
+     "numbers in order; `\"date\"` the ones saved in the folder last first, across subfolders, "
+     "by the time each file was made there (its modification time on a file system that keeps "
+     "no such time), and so the subfolders' tabs too, by their newest picture."},
     {"shell.widgets", "table", "", "", none, none,
      "Panel widgets; each is switched off with `false`. One that can move takes `\"bar\"` to "
      "sit on the bar or `\"quick\"` to sit in the Quick Settings flyout instead, and `true` "
