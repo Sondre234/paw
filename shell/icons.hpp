@@ -20,8 +20,8 @@ class Icons : public QQuickImageProvider {
 QString gioIconName(GIcon *icon, const QString &fallback);
 
 // The icon theme the desktop names: GNOME's setting where the user set it (GNOME Settings,
-// gsettings, nwg-look), or $PAW_USER_ICON_THEME while paw has a profile's there, else GTK's
-// settings.ini, else KDE's kdeglobals; empty when none does.
+// gsettings, nwg-look), or $PAW_USER_ICON_THEME while paw has a profile's there (empty for
+// none of the user's), else GTK's settings.ini, else KDE's kdeglobals; empty when none does.
 QString desktopIconTheme();
 // Whether an icon theme of this name is in one of Qt's folders of themes.
 bool iconThemeInstalled(const QString &theme);

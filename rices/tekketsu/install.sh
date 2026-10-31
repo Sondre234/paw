@@ -325,7 +325,7 @@ part_icons() {
             gtk-update-icon-cache -q -t -f "$data/icons/Tekketsu" 2> /dev/null || true
         fi
         say "use it with tekketsu: icon_theme = \"Tekketsu\" in the tekketsu profile's appearance"
-        say "or always: gsettings set org.gnome.desktop.interface icon-theme Tekketsu"
+        say "or always, leaving icon_theme out of the profile: gsettings set org.gnome.desktop.interface icon-theme Tekketsu"
     else
         say "use it with: gsettings set org.gnome.desktop.interface icon-theme Tela-tekketsu-black-dark"
         say "(paw's shell reads that at its next start)"
@@ -342,7 +342,7 @@ part_cursor() {
         tar -xJf "$tmp/cursors.tar.xz" -C "$data/icons" "$name"
         say "installed $name in $data/icons"
         say "use it with tekketsu: cursor_theme = \"$name\" in the tekketsu profile's appearance"
-        say "or always: gsettings set org.gnome.desktop.interface cursor-theme $name"
+        say "or always, leaving cursor_theme out of the profile: gsettings set org.gnome.desktop.interface cursor-theme $name"
     fi
 }
 

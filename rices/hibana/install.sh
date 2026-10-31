@@ -323,7 +323,7 @@ part_icons() {
             gtk-update-icon-cache -q -t -f "$data/icons/Hibana" 2> /dev/null || true
         fi
         say "use it with hibana: icon_theme = \"Hibana\" in the hibana profile's appearance"
-        say "or always: gsettings set org.gnome.desktop.interface icon-theme Hibana"
+        say "or always, leaving icon_theme out of the profile: gsettings set org.gnome.desktop.interface icon-theme Hibana"
     else
         say "use it with: gsettings set org.gnome.desktop.interface icon-theme Tela-hibana-black-dark"
         say "(paw's shell reads that at its next start)"
@@ -340,7 +340,7 @@ part_cursor() {
         tar -xJf "$tmp/cursors.tar.xz" -C "$data/icons" "$name"
         say "installed $name in $data/icons"
         say "use it with hibana: cursor_theme = \"$name\" in the hibana profile's appearance"
-        say "or always: gsettings set org.gnome.desktop.interface cursor-theme $name"
+        say "or always, leaving cursor_theme out of the profile: gsettings set org.gnome.desktop.interface cursor-theme $name"
     fi
 }
 

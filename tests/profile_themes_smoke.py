@@ -4,8 +4,10 @@ draws the cursor in the profile's theme and size (`get cursor_theme`), tells sub
 gives programs it starts afterwards $XCURSOR_THEME and $XCURSOR_SIZE; a theme that is not
 installed is skipped, saying so. A login session (PAW_LOGIN_SESSION=1) also sets gsettings'
 cursor-theme, cursor-size and icon-theme, and puts back the values it replaced as a profile
-without them is picked and as it ends. Cursor themes of the test's own, on $XCURSOR_PATH, and a
-stand-in for gsettings that writes down each call."""
+without them is picked and as it ends, resetting a key that held its default or already the
+profile's theme; killed, it leaves them on record for the next login session to put back as it
+starts. Cursor themes of the test's own, on $XCURSOR_PATH, and a stand-in for gsettings that
+keeps the values set and writes down each call."""
 import os
 from pathlib import Path
 import struct
@@ -42,30 +44,37 @@ def cursor(path, size):
 
 def prepare(desktop, login_session):
     """Cursor themes, an icon theme, a gsettings stand-in and a script that writes down the
-    environment it starts with; returns the calls gsettings got and that environment."""
+    environment it starts with; returns the calls gsettings got, the values it holds and that
+    environment."""
     root = desktop.root
-    for theme in ("paw-base", "paw-profile"):
+    for theme in ("paw-base", "paw-profile", "paw-user"):
         (root / "cursors" / theme / "cursors").mkdir(parents=True)
         cursor(root / "cursors" / theme / "cursors" / "default", 24)
     (root / "data/icons/paw-icons").mkdir(parents=True)
     (root / "data/icons/paw-icons/index.theme").write_text("[Icon Theme]\nName=paw\n")
-    tools, calls = root / "bin", root / "calls"
+    tools, calls, store = root / "bin", root / "calls", root / "gsettings"
     tools.mkdir()
     calls.write_text("")
-    # What gsettings prints for each key the user set.
+    # The values the user set, a file per key: a cursor theme and an icon theme, but no cursor
+    # size. A key without one holds its default, which is all gsettings' memory backend has.
+    store.mkdir()
+    (store / "cursor-theme").write_text("'paw-user'\n")
+    (store / "icon-theme").write_text("'UserIcons'\n")
     (tools / "gsettings").write_text(f"""#!/bin/sh
-echo "$*" >> "{calls}"
-case "$*" in
-    "get org.gnome.desktop.interface cursor-theme") echo "'paw-user'" ;;
-    "get org.gnome.desktop.interface cursor-size") echo 24 ;;
-    "get org.gnome.desktop.interface icon-theme") echo "'UserIcons'" ;;
+case "$3" in cursor-size) default=24 ;; *) default="'Adwaita'" ;; esac
+[ "$GSETTINGS_BACKEND" = memory ] && {{ echo "$default"; exit; }}
+case "$1" in
+    get) cat "{store}/$3" 2>/dev/null || echo "$default" ;;
+    set) echo "$4" > "{store}/$3" ;;
+    reset) rm -f "{store}/$3" ;;
 esac
+echo "$*" >> "{calls}"
 """)
     (tools / "gsettings").chmod(0o755)
     seen = root / "environment"
     (tools / "show-environment").write_text(
-        f'#!/bin/sh\necho "$XCURSOR_THEME $XCURSOR_SIZE ${{PAW_USER_ICON_THEME-unset}}" '
-        f'> "{seen}.new" && mv "{seen}.new" "{seen}"\n')
+        f'#!/bin/sh\nprintf "%s\\n" "$XCURSOR_THEME" "$XCURSOR_SIZE" '
+        f'"${{PAW_USER_ICON_THEME-unset}}" > "{seen}.new" && mv "{seen}.new" "{seen}"\n')
     (tools / "show-environment").chmod(0o755)
     desktop.env.update(PATH=f"{tools}:{os.environ.get('PATH', '/usr/bin:/bin')}",
                        XCURSOR_PATH=str(root / "cursors"), XCURSOR_THEME="paw-base",
@@ -82,9 +91,13 @@ esac
         seen.unlink(missing_ok=True)
         desktop.msg("spawn", str(tools / "show-environment"))
         desktop.wait_for(seen.exists, "the program that shows its environment")
-        return seen.read_text().split()
+        return seen.read_text().splitlines()
 
-    return lambda: calls.read_text().splitlines(), environment
+    def values():
+        """The values gsettings holds that were set, by key."""
+        return {path.name: path.read_text().strip() for path in store.iterdir()}
+
+    return lambda: calls.read_text().splitlines(), values, environment
 
 
 def theme(desktop):
@@ -92,7 +105,7 @@ def theme(desktop):
 
 
 with harness.Compositor(compositor, start=False) as desktop:
-    calls, environment = prepare(desktop, login_session=False)
+    calls, _, environment = prepare(desktop, login_session=False)
     desktop.start(CONFIG)
     subscriber = desktop.subscribe()
     desktop.detail = lambda: f"cursor theme {theme(desktop)}, heard {subscriber.lines()}"
@@ -118,7 +131,7 @@ with harness.Compositor(compositor, start=False) as desktop:
     assert calls() == [], calls()
 
 with harness.Compositor(compositor, start=False) as desktop:
-    calls, environment = prepare(desktop, login_session=True)
+    calls, values, environment = prepare(desktop, login_session=True)
     desktop.detail = lambda: f"gsettings calls: {calls()}"
     desktop.start(CONFIG)
     desktop.stays(lambda: calls() == [], "gsettings ran for a profile without themes")
@@ -135,14 +148,16 @@ with harness.Compositor(compositor, start=False) as desktop:
     # A reload keeping them tells nothing again.
     desktop.reload()
     desktop.stays(lambda: len(calls()) == len(TOLD), "gsettings ran for no change")
-    # A profile without them puts back what the user had; a theme that is not installed is
-    # not told.
+    # A profile without them puts back what the user had, the size they never set by a reset
+    # (not its default); a theme that is not installed is not told.
     desktop.msg("profile", "missing")
     BACK = ["set org.gnome.desktop.interface cursor-theme 'paw-user'",
-            "set org.gnome.desktop.interface cursor-size 24",
+            "reset org.gnome.desktop.interface cursor-size",
             "set org.gnome.desktop.interface icon-theme 'UserIcons'"]
+    USER = {"cursor-theme": "'paw-user'", "icon-theme": "'UserIcons'"}
     desktop.wait_for(lambda: sorted(calls()[len(TOLD):]) == sorted(BACK),
                      "the user's own themes back")
+    assert values() == USER, values()
     desktop.stays(lambda: len(calls()) == len(TOLD) + len(BACK),
                   "gsettings told a theme that is not installed")
     assert environment() == ["paw-base", "24", "unset"]
@@ -154,6 +169,40 @@ with harness.Compositor(compositor, start=False) as desktop:
     count = len(calls())
     desktop.stop()
     assert sorted(calls()[count:]) == sorted(BACK), calls()[count:]
+    assert values() == USER, values()
+
+# A session that does not end in order (killed here, as a crash or the machine stopping first
+# ends one) leaves what it replaced on record, and the next login session puts that back as it
+# starts, before it reads the desktop's cursor from gsettings. A theme gsettings already holds
+# as the profile names it, left there by a session that kept no record (#32), is not taken for
+# the user's own: it goes back to its default, and a shell started meanwhile hears that the user
+# has no icon theme of their own there, to fall back on GTK's settings.ini.
+with harness.Compositor(compositor, start=False) as desktop:
+    calls, values, environment = prepare(desktop, login_session=True)
+    desktop.detail = lambda: f"gsettings calls: {calls()}, holding {values()}"
+    for name in ("XCURSOR_THEME", "XCURSOR_SIZE"):
+        desktop.env.pop(name)
+    (desktop.root / "gsettings/icon-theme").write_text("'paw-icons'\n")
+    record = desktop.root / "state/paw/replaced-settings"
+    desktop.start(CONFIG.replace('profile = "plain"', 'profile = "themed"'))
+    desktop.wait_for(lambda: values() == {"cursor-theme": "'paw-profile'", "cursor-size": "32",
+                                          "icon-theme": "'paw-icons'"},
+                     "the profile's themes told")
+    assert environment() == ["paw-profile", "32", ""]
+    desktop.server.kill()
+    desktop.server.wait()
+    desktop.server = None
+    assert record.exists()
+    count = len(calls())
+    desktop.start(CONFIG)
+    assert sorted(calls()[count:count + 3]) == [
+        "reset org.gnome.desktop.interface cursor-size",
+        "reset org.gnome.desktop.interface icon-theme",
+        "set org.gnome.desktop.interface cursor-theme 'paw-user'"], calls()[count:]
+    assert values() == {"cursor-theme": "'paw-user'"}, values()
+    assert theme(desktop) == [["paw-user", "24"]], theme(desktop)
+    assert "The last session ended without putting back" in desktop.log.read_text()
+    assert not record.exists()
 
 # X11 windows get the theme's arrow: a switch before XWayland runs is given it as it is ready, and
 # one while an X11 window shows at once.

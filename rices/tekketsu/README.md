@@ -112,11 +112,12 @@ to a release or a commit:
   installed with its folders in iron and their symbols in blood as `Tela-tekketsu-black` (and
   `-light`, `-dark`), and over it tekketsu's own icons as `Tekketsu` (`icons/Tekketsu`), which
   fills in from `Tela-tekketsu-black-dark`: uncomment `icon_theme = "Tekketsu"` in the
-  `tekketsu` profile to have it while tekketsu is in use, or
-  `gsettings set org.gnome.desktop.interface icon-theme Tekketsu` to keep it.
+  `tekketsu` profile to have it while tekketsu is in use, or, leaving it commented,
+  `gsettings set org.gnome.desktop.interface icon-theme Tekketsu` to keep it (with it in the
+  profile too, paw resets it as the profile goes).
 - `--cursor`: [Bibata](https://github.com/ful1e5/Bibata_Cursor) Modern Classic 2.0.7, black with
   a white edge: add `cursor_theme = "Bibata-Modern-Classic"` to the `tekketsu` profile's
-  `appearance`, or
+  `appearance`, or instead
   `gsettings set org.gnome.desktop.interface cursor-theme Bibata-Modern-Classic`.
 
 **The glass.** paw blurs what shows through a translucent window. kitty is translucent as it
