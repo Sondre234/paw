@@ -729,7 +729,7 @@ struct sh_server {
     char pending_output_name[64]; // the name the next headless output takes, for tests
 #if WLR_HAS_SESSION
     struct wlr_session *session;
-    struct wl_listener session_active;
+    struct wl_listener session_active, session_destroy;
     int sleep_inhibitor; // logind inhibitor fd while this VT is in front, else -1
 #endif
     struct sh_power power;

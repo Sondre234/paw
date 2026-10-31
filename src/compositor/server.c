@@ -195,6 +195,22 @@ static int reap_children(int signal_number, void *data) {
     return 0;
 }
 
+#if WLR_HAS_SESSION
+/* wlroots ends the session itself when libseat loses logind or seatd, as when the system bus
+ * stops while the machine shuts down, and the DRM and libinput backends go with it: every
+ * monitor and input device. With nothing left to show or drive, paw ends as it does on quit,
+ * putting back what it changed in the desktop's settings. wlroots aborts if anything still
+ * listens to the session by then. */
+static void session_destroy(struct wl_listener *listener, void *data) {
+    struct sh_server *server = wl_container_of(listener, server, session_destroy);
+    wlr_log(WLR_ERROR, "The seat is gone (libseat lost logind or seatd); ending the session");
+    wl_list_remove(&server->session_active.link);
+    wl_list_remove(&server->session_destroy.link);
+    server->session = NULL;
+    wl_display_terminate(server->wl_display);
+}
+#endif
+
 /* Says why no Wayland socket could be made; libwayland only logs each name it tried. */
 static void report_socket_failure(void) {
     const char *runtime = getenv("XDG_RUNTIME_DIR");
@@ -293,6 +309,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.sleep_inhibitor = -1;
     if (server.session) {
         add_listener(&server.session->events.active, &server.session_active, session_active);
+        add_listener(&server.session->events.destroy, &server.session_destroy, session_destroy);
         session_active(&server.session_active, NULL);
     }
 #endif
@@ -608,8 +625,10 @@ finish:
     wl_list_remove(&server.output_test.link);
     wl_list_remove(&server.output_power_set_mode.link);
 #if WLR_HAS_SESSION
-    if (server.session)
+    if (server.session) {
         wl_list_remove(&server.session_active.link);
+        wl_list_remove(&server.session_destroy.link);
+    }
     if (server.sleep_inhibitor >= 0)
         close(server.sleep_inhibitor);
 #endif
