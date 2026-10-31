@@ -46,7 +46,7 @@ def prepare(desktop, login_session):
     environment it starts with; returns the calls gsettings got, the values it holds and that
     environment."""
     root = desktop.root
-    for theme in ("paw-base", "paw-profile"):
+    for theme in ("paw-base", "paw-profile", "paw-user"):
         (root / "cursors" / theme / "cursors").mkdir(parents=True)
         cursor(root / "cursors" / theme / "cursors" / "default", 24)
     (root / "data/icons/paw-icons").mkdir(parents=True)
@@ -169,6 +169,39 @@ with harness.Compositor(compositor, start=False) as desktop:
     desktop.stop()
     assert sorted(calls()[count:]) == sorted(BACK), calls()[count:]
     assert values() == USER, values()
+
+# A session that does not end in order (killed here, as a crash or the machine stopping first
+# ends one) leaves what it replaced on record, and the next login session puts that back as it
+# starts, before it reads the desktop's cursor from gsettings. A theme gsettings already holds
+# as the profile names it, left there by a session that kept no record (#32), is not taken for
+# the user's own: it goes back to its default, and a shell started meanwhile hears that the user
+# has no icon theme of their own there, to fall back on GTK's settings.ini.
+with harness.Compositor(compositor, start=False) as desktop:
+    calls, values, environment = prepare(desktop, login_session=True)
+    desktop.detail = lambda: f"gsettings calls: {calls()}, holding {values()}"
+    for name in ("XCURSOR_THEME", "XCURSOR_SIZE"):
+        desktop.env.pop(name)
+    (desktop.root / "gsettings/icon-theme").write_text("'paw-icons'\n")
+    record = desktop.root / "state/paw/replaced-settings"
+    desktop.start(CONFIG.replace('profile = "plain"', 'profile = "themed"'))
+    desktop.wait_for(lambda: values() == {"cursor-theme": "'paw-profile'", "cursor-size": "32",
+                                          "icon-theme": "'paw-icons'"},
+                     "the profile's themes told")
+    assert environment() == ["paw-profile", "32", ""]
+    desktop.server.kill()
+    desktop.server.wait()
+    desktop.server = None
+    assert record.exists()
+    count = len(calls())
+    desktop.start(CONFIG)
+    assert sorted(calls()[count:count + 3]) == [
+        "reset org.gnome.desktop.interface cursor-size",
+        "reset org.gnome.desktop.interface icon-theme",
+        "set org.gnome.desktop.interface cursor-theme 'paw-user'"], calls()[count:]
+    assert values() == {"cursor-theme": "'paw-user'"}, values()
+    assert theme(desktop) == [["paw-user", "24"]], theme(desktop)
+    assert "The last session ended without putting back" in desktop.log.read_text()
+    assert not record.exists()
 
 # X11 windows get the theme's arrow: a switch before XWayland runs is given it as it is ready, and
 # one while an X11 window shows at once.
