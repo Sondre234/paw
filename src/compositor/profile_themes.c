@@ -132,25 +132,20 @@ static pid_t put_back(const char *key, const char *value) {
     return *value ? run_gsettings("set", key, value) : run_gsettings("reset", key, NULL);
 }
 
-/* Waits a second at most for the gsettings putting values back; whether every one of them
- * finished, and did so without an error. */
-static bool all_back(pid_t *running, int count) {
+/* Puts back `count` values of `keys` one after another, since gsettings' keyfile backend loses
+ * a change written beside another (dconf takes them in turn itself), a second at most for them
+ * all; whether every one went back without an error. */
+static bool put_back_in_turn(const char *const keys[], const char *const values[], int count) {
     bool back = true;
-    for (int tries = 0; count > 0 && tries < 100; ++tries) {
-        for (int i = 0; i < count;) {
-            int status = 0;
-            pid_t ended = waitpid(running[i], &status, WNOHANG);
-            if (ended == 0) {
-                ++i;
-                continue;
-            }
-            back = back && ended > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
-            running[i] = running[--count];
-        }
-        if (count)
-            usleep(10000);
+    int64_t give_up = now_ms() + 1000;
+    for (int i = 0; i < count; ++i) {
+        pid_t pid = put_back(keys[i], values[i]), ended = 0;
+        int status = 0;
+        while (pid > 0 && (ended = waitpid(pid, &status, WNOHANG)) == 0 && now_ms() < give_up)
+            usleep(5000);
+        back = back && pid > 0 && ended == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
     }
-    return back && count == 0;
+    return back;
 }
 
 /* $XDG_STATE_HOME/paw/replaced-settings: the values a login session replaced and has yet to put
@@ -210,11 +205,11 @@ bool sh_profile_themes_recover(void) {
             wlr_log_errno(WLR_ERROR, "Cannot read %s", path);
         return false;
     }
-    pid_t running[KEY_COUNT];
+    char lines[KEY_COUNT][512];
+    const char *keys[KEY_COUNT], *values[KEY_COUNT];
     int count = 0;
-    bool started = true;
-    char line[512];
-    while (fgets(line, sizeof(line), file)) {
+    while (count < KEY_COUNT && fgets(lines[count], sizeof(lines[count]), file)) {
+        char *line = lines[count];
         line[strcspn(line, "\n")] = '\0';
         char *value = strchr(line, ' ');
         if (value)
@@ -222,17 +217,15 @@ bool sh_profile_themes_recover(void) {
         int known = 0;
         while (known < KEY_COUNT && strcmp(line, key_names[known]))
             ++known;
-        if (known == KEY_COUNT || count == KEY_COUNT) {
+        if (known == KEY_COUNT) {
             wlr_log(WLR_ERROR, "Skipping \"%s\" in %s, not a setting paw replaces", line, path);
             continue;
         }
-        pid_t pid = put_back(key_names[known], value ? value : "");
-        if (pid > 0)
-            running[count++] = pid;
-        started = started && pid > 0;
+        keys[count] = key_names[known];
+        values[count++] = value ? value : "";
     }
     fclose(file);
-    if (!all_back(running, count) || !started) {
+    if (!put_back_in_turn(keys, values, count)) {
         wlr_log(WLR_ERROR, "Cannot put back every desktop setting %s holds, which the last "
                            "session replaced and left", path);
         return false;
@@ -363,16 +356,15 @@ void profile_themes_finish(struct sh_server *server) {
     struct sh_profile_themes *themes = server->profile_themes;
     if (!themes)
         return;
-    pid_t running[KEY_COUNT];
-    int count = 0, saved = 0;
+    const char *keys[KEY_COUNT], *values[KEY_COUNT];
+    int saved = 0;
     for (int i = 0; i < KEY_COUNT; ++i) {
-        struct desktop_key *key = &themes->keys[i];
-        pid_t pid = key->saved ? put_back(key->name, key->replaced) : 0;
-        saved += key->saved;
-        if (pid > 0)
-            running[count++] = pid;
+        if (themes->keys[i].saved) {
+            keys[saved] = themes->keys[i].name;
+            values[saved++] = themes->keys[i].replaced;
+        }
     }
-    if (saved && all_back(running, count) && count == saved) {
+    if (saved && put_back_in_turn(keys, values, saved)) {
         for (int i = 0; i < KEY_COUNT; ++i)
             themes->keys[i].saved = false;
         keep_record(themes);
