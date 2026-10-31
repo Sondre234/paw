@@ -6,14 +6,15 @@
  * programs started afterwards $XCURSOR_THEME and $XCURSOR_SIZE, and subscribers "cursor-theme SIZE
  * NAME". A login session also tells applications through gsettings' org.gnome.desktop.interface
  * cursor-theme, cursor-size and icon-theme, keeping each value it replaces to put back as a
- * profile without one is picked and as the session ends. The shell draws its icons in the icon
- * theme itself (shell/icons.cpp). `get cursor_theme`. */
+ * profile without one is picked and as the session ends; a key that held only its default is
+ * reset instead. The shell draws its icons in the icon theme itself (shell/icons.cpp).
+ * `get cursor_theme`. */
 #include "server.h"
 #include <spawn.h>
 
 /* A key of org.gnome.desktop.interface a login session sets: the value it set last, "" for none,
- * and the one it replaced, as `gsettings get` printed it, which goes back as no profile names
- * one. */
+ * and the one it replaced, as `gsettings get` printed it, "" for the key's default, which goes
+ * back as no profile names one. */
 struct desktop_key {
     const char *name;
     char told[128];
@@ -101,10 +102,10 @@ static void use_cursor_theme(struct sh_server *server, const char *theme, int si
     notify_subscribers(server);
 }
 
-/* Runs gsettings with `words` after its name; its pid, or 0 when it cannot start. */
-static pid_t run_gsettings(const char *const words[3]) {
-    const char *argv[] = {"gsettings", "set", "org.gnome.desktop.interface",
-                          words[0], words[1], NULL};
+/* Runs `gsettings COMMAND org.gnome.desktop.interface KEY VALUE`, without VALUE when it is NULL;
+ * its pid, or 0 when it cannot start. */
+static pid_t run_gsettings(const char *command, const char *key, const char *value) {
+    const char *argv[] = {"gsettings", command, "org.gnome.desktop.interface", key, value, NULL};
     posix_spawnattr_t attributes;
     if (posix_spawnattr_init(&attributes))
         return 0;
@@ -117,30 +118,45 @@ static pid_t run_gsettings(const char *const words[3]) {
     int error = posix_spawnp(&pid, argv[0], NULL, &attributes, (char *const *)argv, environ);
     posix_spawnattr_destroy(&attributes);
     if (error) {
-        wlr_log(WLR_ERROR, "Cannot run gsettings to set %s: %s", words[0], strerror(error));
+        wlr_log(WLR_ERROR, "Cannot run gsettings to %s %s: %s", command, key, strerror(error));
         return 0;
     }
     return pid;
 }
 
-/* What `gsettings get org.gnome.desktop.interface KEY` prints, without its newline; false
- * without gsettings or the key. Waited for: it reads dconf's database, without D-Bus. */
+/* Puts back `value` of `key` as gsettings printed it, "" by a reset. */
+static pid_t put_back(const char *key, const char *value) {
+    return *value ? run_gsettings("set", key, value) : run_gsettings("reset", key, NULL);
+}
+
+/* What `gsettings get org.gnome.desktop.interface KEY` prints, without its newline, or "" when
+ * that is the key's default, which gsettings' memory backend holds alone: putting back a key
+ * the user never set resets it, rather than setting the default, which would hide GTK's
+ * settings.ini from the shell. A value the user set to the default counts as none, which a
+ * reset gives back as well. False without gsettings or the key. Waited for: it reads dconf's
+ * database, without D-Bus. */
 static bool read_key(const char *key, char *value, size_t size) {
-    char command[128];
-    snprintf(command, sizeof(command), "gsettings get org.gnome.desktop.interface %s 2>/dev/null",
-             key);
+    char command[256], fallback[256];
+    snprintf(command, sizeof(command),
+             "gsettings get org.gnome.desktop.interface %s 2>/dev/null && "
+             "GSETTINGS_BACKEND=memory gsettings get org.gnome.desktop.interface %s 2>/dev/null",
+             key, key);
     FILE *output = popen(command, "r");
     if (!output)
         return false;
-    bool read = fgets(value, (int)size, output) != NULL;
+    bool read = fgets(value, (int)size, output) && fgets(fallback, sizeof(fallback), output);
     if (pclose(output) != 0 || !read)
         return false;
     value[strcspn(value, "\n")] = '\0';
-    return *value != '\0';
+    fallback[strcspn(fallback, "\n")] = '\0';
+    if (!strcmp(value, fallback))
+        *value = '\0';
+    return true;
 }
 
-/* The user's icon theme, from a value of icon-theme as gsettings printed it ('Name'), for a shell
- * started while a profile's is set in its place (PAW_USER_ICON_THEME, shell/icons.cpp). */
+/* The user's icon theme, from a value of icon-theme as gsettings printed it ('Name'), empty for
+ * none of their own, for a shell started while a profile's is set in its place
+ * (PAW_USER_ICON_THEME, shell/icons.cpp). */
 static void keep_user_icon_theme(const char *printed) {
     char theme[256];
     size_t length = strlen(printed);
@@ -178,9 +194,9 @@ static void tell(struct desktop_key *key, const char *value) {
         if (quote)
             text[length++] = '\'';
         text[length] = '\0';
-        run_gsettings((const char *const[]){key->name, text, NULL});
+        run_gsettings("set", key->name, text);
     } else if (key->saved) {
-        run_gsettings((const char *const[]){key->name, key->replaced, NULL});
+        put_back(key->name, key->replaced);
         key->saved = false;
         if (!strcmp(key->name, "icon-theme"))
             unsetenv("PAW_USER_ICON_THEME");
@@ -225,9 +241,7 @@ void profile_themes_finish(struct sh_server *server) {
     int count = 0;
     for (int i = 0; i < KEY_COUNT; ++i) {
         struct desktop_key *key = &themes->keys[i];
-        pid_t pid = key->saved ? run_gsettings((const char *const[]){key->name, key->replaced,
-                                                                     NULL})
-                               : 0;
+        pid_t pid = key->saved ? put_back(key->name, key->replaced) : 0;
         if (pid > 0)
             running[count++] = pid;
     }

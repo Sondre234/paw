@@ -68,7 +68,8 @@ namespace {
 // user chose, and settings.ini may name the theme while it is unset.
 QString gnomeIconTheme() {
     // While a login session has a profile's icon theme in GNOME's setting, the compositor keeps
-    // the one it replaced here (src/compositor/profile_themes.c).
+    // the one it replaced here (src/compositor/profile_themes.c), empty when the user had none
+    // of their own there, which leaves settings.ini and kdeglobals to name it.
     if (qEnvironmentVariableIsSet("PAW_USER_ICON_THEME"))
         return qEnvironmentVariable("PAW_USER_ICON_THEME").trimmed();
     GSettingsSchemaSource *source = g_settings_schema_source_get_default();
