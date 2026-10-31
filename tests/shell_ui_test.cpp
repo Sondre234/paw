@@ -9707,6 +9707,49 @@ ListModel {
         QTest::keyClick(popover, Qt::Key_Escape);
         if (!waitFor([&] { return !popover->isVisible(); }))
             return fail("the bar menu did not close");
+        // The wallpaper picker beside it is as long as the bar, not the strip a bottom bar leaves
+        // it, with its folders in a column within it, a long nested one too: more than a row of
+        // tabs across it would hold.
+        const QString sideWalls = walls + "/side";
+        for (const auto *folder : {"a folder with a rather long name/and one in it with a longer name still",
+                                   "four", "five", "six", "seven", "eight", "nine"}) {
+            QDir(sideWalls).mkpath(folder);
+            QImage picture(64, 36, QImage::Format_RGB32);
+            picture.fill(Qt::darkMagenta);
+            if (!picture.save(sideWalls + "/" + folder + "/picture.png"))
+                return fail("could not save a wallpaper in a folder of its own");
+        }
+        auto *wallpapersButton = find(root, "wallpapersButton");
+        click(wallpapersButton);
+        QQuickItem *picker = nullptr;
+        QList<QQuickItem *> folders;
+        std::function<void(QQuickItem *)> collectFolders = [&](QQuickItem *item) {
+            for (auto *child : item->childItems()) {
+                if (child->objectName() == "wallpaperFolder" && child->isVisible())
+                    folders << child;
+                collectFolders(child);
+            }
+        };
+        if (!waitFor([&] {
+                picker = find(root, "wallpaperPicker");
+                folders.clear();
+                if (picker)
+                    collectFolders(picker);
+                return picker && picker->isVisible() && picker->property("progress").toReal() == 1 &&
+                       folders.size() == 10;
+            }))
+            return fail("the wallpaper picker beside a bar along the left did not open with every folder");
+        const QRectF area = picker->mapRectToScene(QRectF(0, 0, picker->width(), picker->height()));
+        if (area.height() <= 220 || area.left() < bar->width())
+            return fail("the wallpaper picker beside a bar along the left is not as long as the bar");
+        for (auto *folder : folders)
+            if (!area.contains(folder->mapRectToScene(QRectF(0, 0, folder->width(), folder->height()))))
+                return fail("a folder of the wallpaper picker beside a bar along the left lies outside it");
+        click(wallpapersButton);
+        if (!waitFor([&] { return !picker->isVisible(); }))
+            return fail("the wallpaper picker beside a bar along the left did not close");
+        QDir(sideWalls).removeRecursively();
+        controller.findWallpapers();
 
         // Not draggable, a press that moves is only a press.
         auto pressAndMove = [&] {

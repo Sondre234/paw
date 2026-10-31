@@ -185,7 +185,9 @@ Along the left or right edge the bar stands upright, as Windows 10's could: the 
 the top, the buttons of pinned applications and windows below it as icons alone (their titles in
 tooltips), then the widgets one above the other, the clock with the hours over the minutes, and
 the sliver at the bottom; tooltips and popups open beside it, the clock's notifications above its
-calendar.
+calendar. The wallpaper picker there is as long as the bar, its filter on a line of its own and
+its folders in a column down its side rather than a row of tabs, a long path elided in the middle
+and shown whole on hover.
 
 Each monitor's bar can have its own edge: `panel_positions = { ["DP-1"] = "left", ["HDMI-A-1"] =
 "top" }` names them by the monitors' names (`paw msg get outputs`), and `panel_position` stays the
