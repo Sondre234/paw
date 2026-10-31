@@ -110,11 +110,12 @@ to a release or a commit:
   installed with its folders in ash and their symbols in ember as `Tela-hibana-black` (and
   `-light`, `-dark`), and over it hibana's own icons as `Hibana` (`icons/Hibana`), which fills in
   from `Tela-hibana-black-dark`: uncomment `icon_theme = "Hibana"` in the `hibana` profile to
-  have it while hibana is in use, or `gsettings set org.gnome.desktop.interface icon-theme Hibana`
-  to keep it.
+  have it while hibana is in use, or, leaving it commented,
+  `gsettings set org.gnome.desktop.interface icon-theme Hibana` to keep it (with it in the profile
+  too, paw resets it as the profile goes).
 - `--cursor`: [Bibata](https://github.com/ful1e5/Bibata_Cursor) Modern Classic 2.0.7, black with
   a white edge: add `cursor_theme = "Bibata-Modern-Classic"` to the `hibana` profile's
-  `appearance`, or
+  `appearance`, or instead
   `gsettings set org.gnome.desktop.interface cursor-theme Bibata-Modern-Classic`.
 
 **The glass.** paw blurs what shows through a translucent window. kitty is translucent as it

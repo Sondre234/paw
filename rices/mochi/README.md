@@ -88,11 +88,12 @@ to a release or a commit:
 - `--icons`: the [Tela icon theme](https://github.com/vinceliuice/Tela-icon-theme) (2026-07-07),
   installed with its folders in mauve as `Tela-mochi-purple` (and `-light`, `-dark`), and over it
   mochi's own icons as `Mochi` (`icons/Mochi`), which fills in from `Tela-mochi-purple-dark`:
-  uncomment `icon_theme = "Mochi"` in the `mochi` profile to have it while mochi is in use, or
-  `gsettings set org.gnome.desktop.interface icon-theme Mochi` to keep it.
+  uncomment `icon_theme = "Mochi"` in the `mochi` profile to have it while mochi is in use, or,
+  leaving it commented, `gsettings set org.gnome.desktop.interface icon-theme Mochi` to keep it
+  (with it in the profile too, paw resets it as the profile goes).
 - `--cursor`: [Catppuccin's cursors](https://github.com/catppuccin/cursors) 2.0.0 in Mocha
   Light, cream like the cat: uncomment `cursor_theme = "catppuccin-mocha-light-cursors"` in the
-  `mochi` profile, or
+  `mochi` profile, or instead
   `gsettings set org.gnome.desktop.interface cursor-theme catppuccin-mocha-light-cursors`.
 
 **The glass.** paw blurs what shows through a translucent window. kitty is translucent as it
