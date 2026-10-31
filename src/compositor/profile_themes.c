@@ -6,11 +6,11 @@
  * programs started afterwards $XCURSOR_THEME and $XCURSOR_SIZE, and subscribers "cursor-theme SIZE
  * NAME". A login session also tells applications through gsettings' org.gnome.desktop.interface
  * cursor-theme, cursor-size and icon-theme, keeping each value it replaces to put back as a
- * profile without one is picked and as the session ends; a key that held only its default is
- * reset instead. Until they are back they wait on disk, so that a session ending without putting
- * them back (killed, or the machine stopping first) has the next put them back as it starts
- * (sh_profile_themes_recover). The shell draws its icons in the icon theme itself
- * (shell/icons.cpp). `get cursor_theme`. */
+ * profile without one is picked and as the session ends; a key that held only its default, or a
+ * theme already the profile's, is reset instead. Until they are back they wait on disk, so that
+ * a session ending without putting them back (killed, or the machine stopping first) has the
+ * next put them back as it starts (sh_profile_themes_recover). The shell draws its icons in the
+ * icon theme itself (shell/icons.cpp). `get cursor_theme`. */
 #include "server.h"
 #include <limits.h>
 #include <spawn.h>
@@ -286,16 +286,6 @@ static void tell(struct sh_profile_themes *themes, struct desktop_key *key, cons
     if (key->unavailable || !strcmp(key->told, value))
         return;
     if (*value) {
-        if (!key->saved) {
-            if (!read_key(key->name, key->replaced, sizeof(key->replaced))) {
-                key->unavailable = true;
-                return;
-            }
-            if (!strcmp(key->name, "icon-theme"))
-                keep_user_icon_theme(key->replaced);
-            key->saved = true;
-            keep_record(themes);
-        }
         // A GVariant string, quoted, but for the size, a number.
         char text[sizeof(key->told) * 2 + 3];
         size_t length = 0;
@@ -310,6 +300,22 @@ static void tell(struct sh_profile_themes *themes, struct desktop_key *key, cons
         if (quote)
             text[length++] = '\'';
         text[length] = '\0';
+        if (!key->saved) {
+            if (!read_key(key->name, key->replaced, sizeof(key->replaced))) {
+                key->unavailable = true;
+                return;
+            }
+            // A theme gsettings holds already as the profile names it is taken for one a session
+            // left there, never putting it back nor keeping a record of it, rather than for the
+            // user's own: it goes back to the default. A size of the same number may well be
+            // theirs.
+            if (quote && !strcmp(key->replaced, text))
+                key->replaced[0] = '\0';
+            if (!strcmp(key->name, "icon-theme"))
+                keep_user_icon_theme(key->replaced);
+            key->saved = true;
+            keep_record(themes);
+        }
         run_gsettings("set", key->name, text);
     } else if (key->saved) {
         put_back(key->name, key->replaced);
