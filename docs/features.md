@@ -3416,9 +3416,17 @@ desktop names. A login session (`--session`) also sets `org.gnome.desktop.interf
 `cursor-theme`, `cursor-size` and `icon-theme` with `gsettings`, which GTK applications follow,
 keeping each value it replaces to put back as a profile without one is picked and as the session
 ends, so that your own settings are yours again outside paw; meanwhile, as with the color scheme,
-a choice made in other settings stands until the profile's changes. An application that asks the
-compositor to draw its cursor by name (cursor-shape-v1, as recent GTK and Qt do) follows at once;
-one that draws its own over its windows may keep the old one until it starts again.
+a choice made in other settings stands until the profile's changes. A key you never set is reset
+rather than given its default, so that the shell still finds your icon theme in GTK's
+`settings.ini`. Until they are back, the values wait in `$XDG_STATE_HOME/paw/replaced-settings`,
+so that a session that ends without putting them back, killed or stopped by the machine shutting
+down, has the next one put them back as it starts. A theme gsettings already holds as the
+profile names it is taken for one an earlier session left there, not for yours, and is reset as
+the profile goes: to keep a rice's icons in every profile, set them with `gsettings` and leave
+`icon_theme` out of the profile, or name them in `appearance` outside the profiles. An
+application that asks the compositor to draw its cursor by name (cursor-shape-v1, as recent GTK
+and Qt do) follows at once; one that draws its own over its windows may keep the old one until it
+starts again.
 
 Switching profiles is one crossfade on every monitor. Each keeps showing what it showed, a picture
 of it laid over everything, while the compositor and the shell take up the new look under it, so
