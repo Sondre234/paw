@@ -2,7 +2,8 @@
 """A desktop's surface on the background layer that takes the keyboard on demand, as the shell's
 does while it shows its icons, takes it as a window does: a click on it gives it the keyboard,
 with the modifiers held there before the click, and the pointer merely passing over it never
-does; focus following the mouse onto a window gives the keyboard back to the windows. Bindings
+does; focus following the mouse onto a window gives the keyboard back to the windows. A press on it
+holds the pointer until it is let go, wherever the pointer goes meanwhile. Bindings
 still run while it has it. Switching to a workspace without windows leaves it the keyboard, and
 one with a window gives it to the window; a launcher holding the keyboard over it, and the lock,
 give it back as they go."""
@@ -94,6 +95,24 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.wait_for(lambda: keyboard() == ("window", "A") and windows()["A"].focused,
                      "moving onto the window gave it the keyboard")
     assert heard()[-1] != "keyboard enter", heard()
+
+    # A press on the desktop holds the pointer until it is let go, as a selection band dragged off
+    # it needs: over the window the desktop hears the motion and the release, the keyboard staying
+    # with it, and the window gets the pointer, and with it the keyboard, only then.
+    pointer("move", *map(str, bare), "press", "left")
+    desktop.wait_for(lambda: keyboard() == ("layer", "desktop") and
+                     heard()[-1] == f"pointer button {BTN_LEFT} pressed", "the desktop pressed")
+    pressed = len(heard())
+    pointer("move", *map(str, on_a))
+    desktop.wait_for(lambda: f"pointer motion {on_a[0]} {on_a[1]}" in heard()[pressed:],
+                     "the desktop hearing the pointer over the window")
+    assert seat() == {"keyboard": ("layer", "desktop"), "pointer": ("layer", "desktop")}, seat()
+    assert "pointer leave" not in heard()[pressed:], heard()[pressed:]
+    pointer("release", "left")
+    desktop.wait_for(lambda: seat() == {"keyboard": ("window", "A"), "pointer": ("window", "A")},
+                     "the window given the pointer and the keyboard once let go")
+    since = heard()[pressed:]
+    assert since.index(f"pointer button {BTN_LEFT} released") < since.index("pointer leave"), since
 
     # A launcher taking the keyboard over the desktop, and the lock, give it back as they go.
     pointer("move", *map(str, bare), "click", "left")

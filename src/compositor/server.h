@@ -904,6 +904,9 @@ struct sh_server {
     struct sh_toplevel *middle_pressed;
     double middle_x, middle_y;
     uint32_t middle_time;
+    /* Where the surface that heard the first of the buttons held was, in layout coordinates, as
+     * it went down: the surface's own coordinates while it holds the pointer (pointer_held). */
+    double held_x, held_y;
     enum sh_deco_part deco_hovered_part;
     enum sh_deco_part deco_pressed_part;
     unsigned group_serial;              // counts group members and groups, to name and order them
