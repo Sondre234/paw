@@ -5,7 +5,8 @@ import QtQuick.Layouts
 
 // The wallpaper button's popup: thumbnails of the pictures in shell.wallpapers, by subfolder,
 // with a filter; clicking one shows it at once and keeps the picker open to try another. With two
-// monitors or more it shows on all of them, or on this one alone.
+// monitors or more it shows on all of them, or on this one alone. Beside a bar along a side it is
+// as long as the bar.
 PopupCard {
     id: wallpaperPicker
     required property var panel
@@ -14,6 +15,8 @@ PopupCard {
     open: panel.audioPopup === "wallpapers"
     // "" shows every folder.
     property string folder: ""
+    // Beside a bar along a side, where the room is the screen's height rather than its width.
+    readonly property bool tall: panel.vertical
     readonly property var folders: {
         var seen = [], list = shell.wallpapers
         for (var i = 0; i < list.length; ++i)
@@ -59,9 +62,11 @@ PopupCard {
     }
     initialFocus: filter
     implicitWidth: 880
-    // As tall as when it shared the bar's surface, which grew to at most 560 pixels.
-    implicitHeight: Math.max(220, Math.min(500, Math.min(560, panel.popupLayer.height) - panel.statusBar.height - shell.panelMarginTop - shell.panelMarginBottom - 16))
-    anchorRect: panel.barAnchor(panel.audioPopupX, 0)
+    // As tall as when it shared the bar's surface, which grew to at most 560 pixels; beside a bar
+    // along a side, the bar's length, lined up with it.
+    implicitHeight: tall ? panel.bar.height
+        : Math.max(220, Math.min(500, Math.min(560, panel.popupLayer.height) - panel.statusBar.height - shell.panelMarginTop - shell.panelMarginBottom - 16))
+    anchorRect: tall ? panel.barAnchor(panel.barTop, panel.bar.height) : panel.barAnchor(panel.audioPopupX, 0)
     side: panel.popupSide
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 10; spacing: 8
