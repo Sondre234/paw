@@ -1336,6 +1336,11 @@ int main(int argc, char **argv) {
         if (mode == SH_BACKEND_SESSION && (has_env("WAYLAND_DISPLAY") || has_env("DISPLAY")))
             throw std::runtime_error("start --session from a TTY or a display manager, outside an "
                                      "existing graphical session");
+        // Before the cursor is read from them, the desktop's settings get back what a session
+        // that ended without putting it back left there.
+        if (runtime.login && sh_profile_themes_recover())
+            std::cerr << "The last session ended without putting back the cursor and icon themes "
+                         "it set in gsettings; yours are back\n";
         follow_desktop_cursor();
         const sh_callbacks callbacks{
             &runtime,           Runtime::settings, Runtime::key,          Runtime::key_released,

@@ -7,9 +7,12 @@
  * NAME". A login session also tells applications through gsettings' org.gnome.desktop.interface
  * cursor-theme, cursor-size and icon-theme, keeping each value it replaces to put back as a
  * profile without one is picked and as the session ends; a key that held only its default is
- * reset instead. The shell draws its icons in the icon theme itself (shell/icons.cpp).
- * `get cursor_theme`. */
+ * reset instead. Until they are back they wait on disk, so that a session ending without putting
+ * them back (killed, or the machine stopping first) has the next put them back as it starts
+ * (sh_profile_themes_recover). The shell draws its icons in the icon theme itself
+ * (shell/icons.cpp). `get cursor_theme`. */
 #include "server.h"
+#include <limits.h>
 #include <spawn.h>
 
 /* A key of org.gnome.desktop.interface a login session sets: the value it set last, "" for none,
@@ -24,6 +27,7 @@ struct desktop_key {
 };
 
 enum { KEY_CURSOR_THEME, KEY_CURSOR_SIZE, KEY_ICON_THEME, KEY_COUNT };
+static const char *const key_names[KEY_COUNT] = {"cursor-theme", "cursor-size", "icon-theme"};
 
 struct sh_profile_themes {
     char base_theme[128]; /* the session's own cursor theme and size */
@@ -50,9 +54,8 @@ void profile_themes_init(struct sh_server *server) {
              theme && *theme && strlen(theme) < sizeof(themes->base_theme) ? theme : "Adwaita");
     const char *size = getenv("XCURSOR_SIZE");
     themes->base_size = size && atoi(size) > 0 && atoi(size) <= 256 ? atoi(size) : 24;
-    themes->keys[KEY_CURSOR_THEME].name = "cursor-theme";
-    themes->keys[KEY_CURSOR_SIZE].name = "cursor-size";
-    themes->keys[KEY_ICON_THEME].name = "icon-theme";
+    for (int i = 0; i < KEY_COUNT; ++i)
+        themes->keys[i].name = key_names[i];
     profile_themes_reload(server);
 }
 
@@ -129,6 +132,116 @@ static pid_t put_back(const char *key, const char *value) {
     return *value ? run_gsettings("set", key, value) : run_gsettings("reset", key, NULL);
 }
 
+/* Waits a second at most for the gsettings putting values back; whether every one of them
+ * finished, and did so without an error. */
+static bool all_back(pid_t *running, int count) {
+    bool back = true;
+    for (int tries = 0; count > 0 && tries < 100; ++tries) {
+        for (int i = 0; i < count;) {
+            int status = 0;
+            pid_t ended = waitpid(running[i], &status, WNOHANG);
+            if (ended == 0) {
+                ++i;
+                continue;
+            }
+            back = back && ended > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+            running[i] = running[--count];
+        }
+        if (count)
+            usleep(10000);
+    }
+    return back && count == 0;
+}
+
+/* $XDG_STATE_HOME/paw/replaced-settings: the values a login session replaced and has yet to put
+ * back, a line for each key, its name and the value as gsettings printed it, or its name alone
+ * for one to reset. */
+static bool record_path(char *path, size_t size) {
+    const char *state = getenv("XDG_STATE_HOME"), *home = getenv("HOME");
+    int length;
+    if (state && state[0] == '/')
+        length = snprintf(path, size, "%s/paw/replaced-settings", state);
+    else if (home && home[0] == '/')
+        length = snprintf(path, size, "%s/.local/state/paw/replaced-settings", home);
+    else
+        return false;
+    return length > 0 && (size_t)length < size;
+}
+
+/* Writes the record anew as a value is replaced or goes back, before gsettings changes it, and
+ * removes it once none is left to put back. */
+static void keep_record(const struct sh_profile_themes *themes) {
+    char path[PATH_MAX], directory[PATH_MAX], temporary[PATH_MAX + 8];
+    if (!record_path(path, sizeof(path)))
+        return;
+    bool any = false;
+    for (int i = 0; i < KEY_COUNT; ++i)
+        any = any || themes->keys[i].saved;
+    if (!any) {
+        if (unlink(path) != 0 && errno != ENOENT)
+            wlr_log_errno(WLR_ERROR, "Cannot remove %s", path);
+        return;
+    }
+    snprintf(directory, sizeof(directory), "%s", path);
+    *strrchr(directory, '/') = '\0';
+    snprintf(temporary, sizeof(temporary), "%s.new", path);
+    FILE *file = make_directories(directory) ? fopen(temporary, "w") : NULL;
+    if (file) {
+        for (int i = 0; i < KEY_COUNT; ++i) {
+            const struct desktop_key *key = &themes->keys[i];
+            if (key->saved)
+                fprintf(file, "%s%s%s\n", key->name, *key->replaced ? " " : "", key->replaced);
+        }
+        if (fclose(file) == 0 && rename(temporary, path) == 0)
+            return;
+    }
+    wlr_log_errno(WLR_ERROR, "Cannot write %s, which keeps the desktop settings to put back", path);
+}
+
+/* The record left by a session that never reached profile_themes_finish, put back before the
+ * new session reads anything from gsettings, and gone once it is back. */
+bool sh_profile_themes_recover(void) {
+    char path[PATH_MAX];
+    if (!record_path(path, sizeof(path)))
+        return false;
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        if (errno != ENOENT)
+            wlr_log_errno(WLR_ERROR, "Cannot read %s", path);
+        return false;
+    }
+    pid_t running[KEY_COUNT];
+    int count = 0;
+    bool started = true;
+    char line[512];
+    while (fgets(line, sizeof(line), file)) {
+        line[strcspn(line, "\n")] = '\0';
+        char *value = strchr(line, ' ');
+        if (value)
+            *value++ = '\0';
+        int known = 0;
+        while (known < KEY_COUNT && strcmp(line, key_names[known]))
+            ++known;
+        if (known == KEY_COUNT || count == KEY_COUNT) {
+            wlr_log(WLR_ERROR, "Skipping \"%s\" in %s, not a setting paw replaces", line, path);
+            continue;
+        }
+        pid_t pid = put_back(key_names[known], value ? value : "");
+        if (pid > 0)
+            running[count++] = pid;
+        started = started && pid > 0;
+    }
+    fclose(file);
+    if (!all_back(running, count) || !started) {
+        wlr_log(WLR_ERROR, "Cannot put back every desktop setting %s holds, which the last "
+                           "session replaced and left", path);
+        return false;
+    }
+    if (unlink(path) != 0)
+        wlr_log_errno(WLR_ERROR, "Cannot remove %s", path);
+    return true;
+}
+
 /* What `gsettings get org.gnome.desktop.interface KEY` prints, without its newline, or "" when
  * that is the key's default, which gsettings' memory backend holds alone: putting back a key
  * the user never set resets it, rather than setting the default, which would hide GTK's
@@ -169,17 +282,20 @@ static void keep_user_icon_theme(const char *printed) {
 
 /* Tells applications `value` for `key`, "" putting back the value the session replaced, when it
  * changed: a choice made meanwhile in other settings stands until then. */
-static void tell(struct desktop_key *key, const char *value) {
+static void tell(struct sh_profile_themes *themes, struct desktop_key *key, const char *value) {
     if (key->unavailable || !strcmp(key->told, value))
         return;
     if (*value) {
-        if (!key->saved && !read_key(key->name, key->replaced, sizeof(key->replaced))) {
-            key->unavailable = true;
-            return;
+        if (!key->saved) {
+            if (!read_key(key->name, key->replaced, sizeof(key->replaced))) {
+                key->unavailable = true;
+                return;
+            }
+            if (!strcmp(key->name, "icon-theme"))
+                keep_user_icon_theme(key->replaced);
+            key->saved = true;
+            keep_record(themes);
         }
-        if (!key->saved && !strcmp(key->name, "icon-theme"))
-            keep_user_icon_theme(key->replaced);
-        key->saved = true;
         // A GVariant string, quoted, but for the size, a number.
         char text[sizeof(key->told) * 2 + 3];
         size_t length = 0;
@@ -198,6 +314,7 @@ static void tell(struct desktop_key *key, const char *value) {
     } else if (key->saved) {
         put_back(key->name, key->replaced);
         key->saved = false;
+        keep_record(themes);
         if (!strcmp(key->name, "icon-theme"))
             unsetenv("PAW_USER_ICON_THEME");
     }
@@ -224,36 +341,38 @@ void profile_themes_reload(struct sh_server *server) {
     char size_text[16] = "";
     if (settings->cursor_size > 0)
         snprintf(size_text, sizeof(size_text), "%d", settings->cursor_size);
-    tell(&themes->keys[KEY_CURSOR_THEME], installed ? named : "");
-    tell(&themes->keys[KEY_CURSOR_SIZE], size_text);
+    tell(themes, &themes->keys[KEY_CURSOR_THEME], installed ? named : "");
+    tell(themes, &themes->keys[KEY_CURSOR_SIZE], size_text);
     // The shell says when an icon theme is not installed.
     const char *icons = settings->icon_theme;
-    tell(&themes->keys[KEY_ICON_THEME], *icons && sh_theme_installed(icons, false) ? icons : "");
+    tell(themes, &themes->keys[KEY_ICON_THEME],
+         *icons && sh_theme_installed(icons, false) ? icons : "");
 }
 
 /* As the session ends: the values it replaced go back, waited for a second at most, so that the
- * next session starts from the user's own. */
+ * next session starts from the user's own; the record goes with them, or stays for the next
+ * session to put back what did not go back. A session that replaced nothing leaves the record
+ * alone, as a nested paw beside a login session's. */
 void profile_themes_finish(struct sh_server *server) {
     struct sh_profile_themes *themes = server->profile_themes;
     if (!themes)
         return;
     pid_t running[KEY_COUNT];
-    int count = 0;
+    int count = 0, saved = 0;
     for (int i = 0; i < KEY_COUNT; ++i) {
         struct desktop_key *key = &themes->keys[i];
         pid_t pid = key->saved ? put_back(key->name, key->replaced) : 0;
+        saved += key->saved;
         if (pid > 0)
             running[count++] = pid;
     }
-    for (int tries = 0; count > 0 && tries < 100; ++tries) {
-        for (int i = 0; i < count;) {
-            if (waitpid(running[i], NULL, WNOHANG) != 0)
-                running[i] = running[--count];
-            else
-                ++i;
-        }
-        if (count)
-            usleep(10000);
+    if (saved && all_back(running, count) && count == saved) {
+        for (int i = 0; i < KEY_COUNT; ++i)
+            themes->keys[i].saved = false;
+        keep_record(themes);
+    } else if (saved) {
+        wlr_log(WLR_ERROR, "Cannot put back every desktop setting the session replaced; the "
+                           "next one does");
     }
     free(themes);
     server->profile_themes = NULL;

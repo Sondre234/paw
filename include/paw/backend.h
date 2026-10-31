@@ -896,6 +896,13 @@ const char *sh_query_name(size_t index);
  * applications look for one (src/theme_lookup.cpp). */
 bool sh_theme_installed(const char *name, bool cursor);
 
+/* As a login session starts, before anything reads the desktop's settings: puts back the values
+ * of gsettings' org.gnome.desktop.interface that a session replaced for its profile and left
+ * there, ending without putting them back (killed, or the machine stopping first), from the
+ * record it kept of them (src/compositor/profile_themes.c). Whether there were any, all back
+ * now. */
+bool sh_profile_themes_recover(void);
+
 struct sh_rect {
     int x, y, width, height;
 };
