@@ -575,6 +575,30 @@ static void deco_activate(struct sh_toplevel *toplevel, enum sh_deco_part part) 
     }
 }
 
+/* Whether the surface a press went to holds the pointer, as an implicit grab: it hears the motion
+ * wherever the pointer goes, and every button, until the last it heard go down comes up. A surface
+ * the pointer went on to meanwhile would not know the buttons were held (wlroots forgets them as
+ * the focus changes), and the one pressed would never hear them let go: a selection band dragged
+ * off it would freeze. A drag, or a popup's grab, says itself where the pointer is. */
+static bool pointer_held(struct sh_server *server) {
+    struct wlr_seat *seat = server->seat;
+    return seat->pointer_state.button_count && seat->pointer_state.focused_surface &&
+           !wlr_seat_pointer_has_grab(seat);
+}
+
+/* A button to the surface with the pointer; the first to go down notes where that surface is, the
+ * client having heard the pointer last at (sx, sy) on it. */
+static void send_button(struct sh_server *server, uint32_t time, uint32_t button,
+                        enum wl_pointer_button_state state) {
+    struct wlr_seat_pointer_state *pointer = &server->seat->pointer_state;
+    bool first = !pointer->button_count;
+    wlr_seat_pointer_notify_button(server->seat, time, button, state);
+    if (first && pointer->button_count) {
+        server->held_x = server->cursor->x - pointer->sx;
+        server->held_y = server->cursor->y - pointer->sy;
+    }
+}
+
 /* Whether a middle drag moves this window (mouse.middle_drag). */
 static bool middle_drags(struct sh_toplevel *toplevel) {
     const struct sh_settings *settings = server_settings(toplevel->server);
@@ -590,8 +614,7 @@ static bool middle_drags(struct sh_toplevel *toplevel) {
 /* The held-back middle press reaches the window after all, as pressed. */
 static void middle_send_press(struct sh_server *server) {
     server->middle_pressed = NULL;
-    wlr_seat_pointer_notify_button(server->seat, server->middle_time, BTN_MIDDLE,
-                                   WL_POINTER_BUTTON_STATE_PRESSED);
+    send_button(server, server->middle_time, BTN_MIDDLE, WL_POINTER_BUTTON_STATE_PRESSED);
 }
 
 /* A held-back middle press that has travelled far enough moves its window. */
@@ -667,6 +690,11 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
         server->pointed.x = server->cursor->x;
         server->pointed.y = server->cursor->y;
         server->pointed.tile = toplevel && toplevel->tiled;
+    }
+    if (pointer_held(server)) {
+        wlr_seat_pointer_notify_motion(seat, time, server->cursor->x - server->held_x,
+                                       server->cursor->y - server->held_y);
+        return;
     }
     if (toplevel && toplevel->deco && !server->deco_revealed &&
         in_deco_corner(toplevel, server->cursor->x, server->cursor->y)) {
@@ -968,8 +996,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         bool middle = event->button == BTN_MIDDLE;
         middle_send_press(server); // released in place, or another button joined it
         if (middle && event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
-            wlr_seat_pointer_notify_button(server->seat, event->time_msec, event->button,
-                                           event->state);
+            send_button(server, event->time_msec, event->button, event->state);
             return;
         }
     }
@@ -995,7 +1022,11 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     }
     if (handle_button_binding(server, event))
         return;
-    if (!server->locked && !server->deco_pressed) {
+    // The surface holding the pointer hears every button, wherever the pointer is: the
+    // compositor's controls, and focus by a click, are for a pointer nothing holds.
+    bool held = pointer_held(server);
+    bool own = !server->locked && !server->deco_pressed && !held;
+    if (own) {
         int tab;
         struct sh_toplevel *tabbed = tabs_at(server, server->cursor->x, server->cursor->y, &tab);
         if (tabbed) {
@@ -1008,12 +1039,11 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         }
     }
     enum sh_deco_part part;
-    struct sh_toplevel *decorated =
-        event->state == WL_POINTER_BUTTON_STATE_PRESSED && !server->locked && !server->deco_pressed
-            ? deco_at(server, server->cursor->x, server->cursor->y, &part)
-            : NULL;
-    if (!decorated && event->state == WL_POINTER_BUTTON_STATE_PRESSED && !server->locked &&
-        !server->deco_pressed && event->button == BTN_LEFT) {
+    struct sh_toplevel *decorated = event->state == WL_POINTER_BUTTON_STATE_PRESSED && own
+                                        ? deco_at(server, server->cursor->x, server->cursor->y, &part)
+                                        : NULL;
+    if (!decorated && event->state == WL_POINTER_BUTTON_STATE_PRESSED && own &&
+        event->button == BTN_LEFT) {
         double sx, sy;
         struct wlr_surface *surface = NULL;
         struct sh_toplevel *toplevel =
@@ -1044,7 +1074,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         refresh_decoration(decorated);
         return;
     }
-    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
+    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED && !held) {
         struct wlr_output *clicked = pointer_output(server);
         if (clicked)
             set_active_output(server, clicked->name);
@@ -1092,10 +1122,12 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
             return;
         }
     }
-    wlr_seat_pointer_notify_button(server->seat, event->time_msec, event->button, event->state);
+    send_button(server, event->time_msec, event->button, event->state);
     if (event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
         finish_grab(server);
         reset_cursor_mode(server);
+        if (held && !pointer_held(server)) // let go: what is under the pointer has it now
+            process_cursor_motion(server, event->time_msec);
     }
 }
 
