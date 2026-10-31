@@ -4,9 +4,10 @@ draws the cursor in the profile's theme and size (`get cursor_theme`), tells sub
 gives programs it starts afterwards $XCURSOR_THEME and $XCURSOR_SIZE; a theme that is not
 installed is skipped, saying so. A login session (PAW_LOGIN_SESSION=1) also sets gsettings'
 cursor-theme, cursor-size and icon-theme, and puts back the values it replaced as a profile
-without them is picked and as it ends, resetting a key that held its default. Cursor themes of
-the test's own, on $XCURSOR_PATH, and a stand-in for gsettings that keeps the values set and
-writes down each call."""
+without them is picked and as it ends, resetting a key that held its default or already the
+profile's theme; killed, it leaves them on record for the next login session to put back as it
+starts. Cursor themes of the test's own, on $XCURSOR_PATH, and a stand-in for gsettings that
+keeps the values set and writes down each call."""
 import os
 from pathlib import Path
 import struct
