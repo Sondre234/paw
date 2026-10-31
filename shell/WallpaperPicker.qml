@@ -6,7 +6,7 @@ import QtQuick.Layouts
 // The wallpaper button's popup: thumbnails of the pictures in shell.wallpapers, by subfolder,
 // with a filter; clicking one shows it at once and keeps the picker open to try another. With two
 // monitors or more it shows on all of them, or on this one alone. Beside a bar along a side it is
-// as long as the bar.
+// as long as the bar, its filter on a line of its own.
 PopupCard {
     id: wallpaperPicker
     required property var panel
@@ -70,71 +70,82 @@ PopupCard {
     side: panel.popupSide
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 10; spacing: 8
-        RowLayout {
-            Layout.fillWidth: true; spacing: 8
-            Text {
-                text: "Wallpapers"; color: Theme.text; font.pixelSize: shell.fontSize + 1; font.bold: true; font.family: Theme.fontFamily
-            }
-            Text {
-                Layout.fillWidth: true
-                text: wallpaperPicker.shown.length + (wallpaperPicker.shown.length === 1 ? " picture" : " pictures")
-                elide: Text.ElideRight
-                color: Theme.textMuted; font.pixelSize: shell.fontSize - 1; font.family: Theme.fontFamily
-            }
-            // Every monitor or this one alone, shown with two monitors or more, or when this one
-            // had a wallpaper of its own as the picker opened.
-            Row {
-                id: scopeChoice
-                objectName: "wallpaperScope"
-                visible: Qt.application.screens.length > 1 || wallpaperPicker.ownAtOpen
-                spacing: 4
-                Repeater {
-                    model: [{ scope: "all", text: "All monitors", name: "Use on all monitors" },
-                            { scope: "monitor", text: "This monitor only", name: "Use on this monitor only" }]
-                    delegate: Button {
-                        id: scopeButton
-                        required property var modelData
-                        readonly property bool current: wallpaperPicker.scope === modelData.scope
-                        objectName: modelData.scope === "all" ? "wallpaperScopeAll" : "wallpaperScopeMonitor"
-                        height: 30
-                        Accessible.name: modelData.name
-                        Accessible.checkable: true
-                        Accessible.checked: current
-                        onClicked: wallpaperPicker.scope = modelData.scope
-                        background: Rectangle {
-                            radius: 15
-                            color: scopeButton.current ? Theme.accent : (scopeButton.hovered ? Theme.selected : Theme.hover)
-                        }
-                        contentItem: Text {
-                            leftPadding: 8; rightPadding: 8
-                            text: scopeButton.modelData.text
-                            verticalAlignment: Text.AlignVCenter
-                            color: scopeButton.current ? Theme.textOnAccent : Theme.text
-                            font.pixelSize: shell.fontSize - 1; font.family: Theme.fontFamily
+        // The title, the count and the monitor choice, then the filter and the shuffle: on one line,
+        // or in a tall picker the filter on a line of its own across it.
+        GridLayout {
+            Layout.fillWidth: true
+            columns: wallpaperPicker.tall ? 1 : 2
+            rowSpacing: 8; columnSpacing: 8
+            RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                Text {
+                    text: "Wallpapers"; color: Theme.text; font.pixelSize: shell.fontSize + 1; font.bold: true; font.family: Theme.fontFamily
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: wallpaperPicker.shown.length + (wallpaperPicker.shown.length === 1 ? " picture" : " pictures")
+                    elide: Text.ElideRight
+                    color: Theme.textMuted; font.pixelSize: shell.fontSize - 1; font.family: Theme.fontFamily
+                }
+                // Every monitor or this one alone, shown with two monitors or more, or when this one
+                // had a wallpaper of its own as the picker opened.
+                Row {
+                    id: scopeChoice
+                    objectName: "wallpaperScope"
+                    visible: Qt.application.screens.length > 1 || wallpaperPicker.ownAtOpen
+                    spacing: 4
+                    Repeater {
+                        model: [{ scope: "all", text: "All monitors", name: "Use on all monitors" },
+                                { scope: "monitor", text: "This monitor only", name: "Use on this monitor only" }]
+                        delegate: Button {
+                            id: scopeButton
+                            required property var modelData
+                            readonly property bool current: wallpaperPicker.scope === modelData.scope
+                            objectName: modelData.scope === "all" ? "wallpaperScopeAll" : "wallpaperScopeMonitor"
+                            height: 30
+                            Accessible.name: modelData.name
+                            Accessible.checkable: true
+                            Accessible.checked: current
+                            onClicked: wallpaperPicker.scope = modelData.scope
+                            background: Rectangle {
+                                radius: 15
+                                color: scopeButton.current ? Theme.accent : (scopeButton.hovered ? Theme.selected : Theme.hover)
+                            }
+                            contentItem: Text {
+                                leftPadding: 8; rightPadding: 8
+                                text: scopeButton.modelData.text
+                                verticalAlignment: Text.AlignVCenter
+                                color: scopeButton.current ? Theme.textOnAccent : Theme.text
+                                font.pixelSize: shell.fontSize - 1; font.family: Theme.fontFamily
+                            }
                         }
                     }
                 }
             }
-            TextField {
-                id: filter
-                objectName: "wallpaperFilter"
-                Layout.preferredWidth: 220; Layout.preferredHeight: 30
-                placeholderText: "Filter"
-                color: Theme.text; placeholderTextColor: Theme.textMuted
-                font.pixelSize: shell.fontSize; font.family: Theme.fontFamily
-                background: Rectangle { radius: 6; color: Theme.surfaceRaised; border.color: filter.activeFocus ? Theme.accent : "transparent" }
-                Keys.onEscapePressed: panel.closeMenus()
-                Keys.onReturnPressed: if (wallpaperPicker.shown.length > 0) wallpaperPicker.pick(wallpaperPicker.shown[0].path)
-            }
-            Button {
-                id: shuffle
-                objectName: "wallpaperShuffle"
-                Layout.preferredWidth: 30; Layout.preferredHeight: 30
-                enabled: wallpaperPicker.shown.length > 0
-                Accessible.name: "Random wallpaper"
-                onClicked: wallpaperPicker.pick(wallpaperPicker.shown[Math.floor(Math.random() * wallpaperPicker.shown.length)].path)
-                background: Rectangle { radius: 6; color: shuffle.hovered ? Theme.hover : "transparent" }
-                contentItem: Item { Icon { anchors.centerIn: parent; name: "shuffle"; size: 16 } }
+            RowLayout {
+                Layout.fillWidth: wallpaperPicker.tall; spacing: 8
+                TextField {
+                    id: filter
+                    objectName: "wallpaperFilter"
+                    Layout.fillWidth: wallpaperPicker.tall
+                    Layout.preferredWidth: 220; Layout.preferredHeight: 30
+                    placeholderText: "Filter"
+                    color: Theme.text; placeholderTextColor: Theme.textMuted
+                    font.pixelSize: shell.fontSize; font.family: Theme.fontFamily
+                    background: Rectangle { radius: 6; color: Theme.surfaceRaised; border.color: filter.activeFocus ? Theme.accent : "transparent" }
+                    Keys.onEscapePressed: panel.closeMenus()
+                    Keys.onReturnPressed: if (wallpaperPicker.shown.length > 0) wallpaperPicker.pick(wallpaperPicker.shown[0].path)
+                }
+                Button {
+                    id: shuffle
+                    objectName: "wallpaperShuffle"
+                    Layout.preferredWidth: 30; Layout.preferredHeight: 30
+                    enabled: wallpaperPicker.shown.length > 0
+                    Accessible.name: "Random wallpaper"
+                    onClicked: wallpaperPicker.pick(wallpaperPicker.shown[Math.floor(Math.random() * wallpaperPicker.shown.length)].path)
+                    background: Rectangle { radius: 6; color: shuffle.hovered ? Theme.hover : "transparent" }
+                    contentItem: Item { Icon { anchors.centerIn: parent; name: "shuffle"; size: 16 } }
+                }
             }
         }
         // The subfolders, as tabs, the one filtered by last leftmost as the picker opens.
