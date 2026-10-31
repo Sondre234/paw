@@ -16,8 +16,8 @@
 #include <spawn.h>
 
 /* A key of org.gnome.desktop.interface a login session sets: the value it set last, "" for none,
- * and the one it replaced, as `gsettings get` printed it, "" for the key's default, which goes
- * back as no profile names one. */
+ * and the one it replaced, as `gsettings get` printed it, "" for none of the user's (the key's
+ * default, or a theme already the profile's), which goes back as no profile names one. */
 struct desktop_key {
     const char *name;
     char told[128];
