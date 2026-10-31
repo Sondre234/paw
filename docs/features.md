@@ -994,6 +994,10 @@ it, maximizes it below the panels, and at a side or in a corner snaps it into th
 quarter (see [Snapping](#snapping)); dragging it away again restores its earlier size. Hovering a
 window focuses it without raising it (`mouse.focus_follows = false` turns this off), except
 while dragging, while a menu or popup is open, or while a panel or launcher has the keyboard.
+A press keeps the pointer with the window, panel or desktop it went to until the last button
+comes up, wherever the pointer goes meanwhile: it hears the motion and every button, so that a
+selection band or a scroll bar dragged off it goes on following the pointer and ends as the button
+is let go, and only then does what lies under the pointer get it.
 The desktop has the keyboard as a window does where it asks for it, as the shell's does while it
 shows its [icons](#desktop-icons) (a layer surface below the windows taking the keyboard on
 demand): a click on it gives it the keyboard, the pointer passing over it never does, and
