@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "controller.hpp"
+#include "fuzzy.hpp"
 #include "gio_launch.hpp"
 #include "icons.hpp"
 #include "image_provider.hpp"
@@ -2115,6 +2116,59 @@ void ShellController::tileWith(const QString &output, const QString &layout, boo
         if (reply.startsWith("ok"))
             toggleTiling(output);
     });
+}
+QVariantList ShellController::sessionList(const QByteArray &reply) {
+    QVariantList sessions;
+    const auto lines = reply.split('\n');
+    if (lines.isEmpty() || lines[0] != "ok")
+        return sessions;
+    for (int i = 1; i < lines.size(); ++i) {
+        const auto fields = lines[i].split('\t');
+        if (fields.size() == 3)
+            sessions.push_back(QVariantMap{{"name", QString::fromUtf8(fields[0])},
+                                           {"windows", fields[1].toInt()},
+                                           {"saved", fields[2].toLongLong()}});
+    }
+    return sessions;
+}
+void ShellController::setSessions(const QVariantList &sessions) {
+    if (sessions == sessions_)
+        return;
+    sessions_ = sessions;
+    Q_EMIT sessionsChanged();
+}
+void ShellController::readSessions() {
+    ask("session list\n", [this](const QByteArray &reply) { setSessions(sessionList(reply)); });
+}
+void ShellController::changeSessions(const QString &line) {
+    if (qEnvironmentVariable("PAW_SOCKET").isEmpty()) {
+        report("Saved arrangements need a running paw session.");
+        return;
+    }
+    ask(line.toUtf8() + "\n", [this](const QByteArray &reply) {
+        if (reply.startsWith("error: "))
+            report(QString::fromUtf8(reply.mid(7).trimmed()));
+        readSessions();
+    });
+}
+void ShellController::restoreSession(const QString &name) {
+    if (sessionNameValid(name))
+        changeSessions("session restore " + name + " launch");
+}
+void ShellController::saveSession(const QString &name) {
+    if (sessionNameValid(name))
+        changeSessions("session save " + name);
+}
+void ShellController::renameSession(const QString &name, const QString &newName) {
+    if (sessionNameValid(name) && sessionNameValid(newName))
+        changeSessions("session rename " + name + " " + newName);
+}
+void ShellController::deleteSession(const QString &name) {
+    if (sessionNameValid(name))
+        changeSessions("session delete " + name);
+}
+bool ShellController::sessionNameValid(const QString &name) const {
+    return fuzzy::validSessionName(name);
 }
 void ShellController::showWorkspace(const QString &output, int number) {
     if (!output.isEmpty() && number >= 1 && number <= workspaceCount())

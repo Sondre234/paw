@@ -157,19 +157,9 @@ void Palette::open(const QString &output) {
     Q_EMIT openChanged();
     // Saved sessions come from the compositor; they join the list when it answers.
     controller_.ask("session list\n", [this](const QByteArray &reply) {
-        QVariantList sessions;
-        const auto lines = reply.split('\n');
-        if (lines.isEmpty() || lines[0] != "ok")
+        if (!reply.startsWith("ok\n"))
             return;
-        for (int i = 1; i < lines.size(); ++i) {
-            const auto fields = lines[i].split('\t');
-            if (fields.size() != 3)
-                continue;
-            const auto name = QString::fromUtf8(fields[0]);
-            const auto count = fields[1].toInt();
-            sessions.push_back(QVariantMap{{"name", name}, {"windows", count}});
-        }
-        sessions_ = sessions;
+        sessions_ = ShellController::sessionList(reply);
         if (!output_.isEmpty()) {
             collect();
             refreshKeepingSelection();
