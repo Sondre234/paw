@@ -654,6 +654,7 @@ finish:
     cube_end(&server);
     rice_finish(&server);
     windowless_finish(&server);
+    session_finish(&server);
     profile_schedule_finish(&server);
     cat_finish(&server);
     cursor_trail_finish(&server);
