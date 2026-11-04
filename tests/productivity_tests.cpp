@@ -9,6 +9,7 @@
 #include <memory>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -92,8 +93,15 @@ void session_file() {
     strcpy(session->outputs[0].name, "DP-1");
     session->outputs[0].workspace = 2;
     session->outputs[0].tiling = 1;
+    // Workspace 2 toggled to tile and 4 to float on their own; HDMI-A-1's follow it.
+    std::fill(std::begin(session->outputs[0].workspace_tiling),
+              std::end(session->outputs[0].workspace_tiling), -1);
+    session->outputs[0].workspace_tiling[1] = 1;
+    session->outputs[0].workspace_tiling[3] = 0;
     strcpy(session->outputs[1].name, "HDMI-A-1");
     session->outputs[1].tiling = -1;
+    std::fill(std::begin(session->outputs[1].workspace_tiling),
+              std::end(session->outputs[1].workspace_tiling), -1);
     session->output_count = 2;
     strcpy(session->layouts[0].output, "DP-1");
     session->layouts[0].workspace = 1;
@@ -130,6 +138,9 @@ void session_file() {
     fclose(out);
     std::unique_ptr<char, decltype(&free)> text(buffer, free);
     require(std::count(buffer, buffer + size, '\n') == 1 + 2 + 2 + 2, "one record per line");
+    require(strstr(buffer, "\noutput\tDP-1\t2\t1\t-1-0\n") &&
+                strstr(buffer, "\noutput\tHDMI-A-1\t0\t-1\n"),
+            buffer);
     FILE *in = fmemopen(buffer, size, "r");
     auto back = std::make_unique<sh_session>();
     char error[128] = "";
@@ -142,6 +153,13 @@ void session_file() {
                 back->layouts[0].ratio > 0.59 && back->layouts[0].ratio < 0.61 &&
                 back->window_count == 2,
             "outputs and layouts did not round-trip");
+    require(std::equal(std::begin(back->outputs[0].workspace_tiling),
+                       std::end(back->outputs[0].workspace_tiling),
+                       std::begin(session->outputs[0].workspace_tiling)) &&
+                std::equal(std::begin(back->outputs[1].workspace_tiling),
+                           std::end(back->outputs[1].workspace_tiling),
+                           std::begin(session->outputs[1].workspace_tiling)),
+            "workspaces' own tiling did not round-trip");
     auto &r = back->windows[0];
     require(!strcmp(r.output, "DP-1") && r.workspace == 1 &&
                 r.flags == (SH_SESSION_TILED | SH_SESSION_FOCUSED) && r.x == -5 && r.y == 7 &&
@@ -168,6 +186,8 @@ void session_file() {
     bad("paw-session 1\nbogus\tx\n", "line 2");
     bad("paw-session 1\noutput\tDP-1\tx\t1\n", "line 2");
     bad("paw-session 1\noutput\tDP-1\t-1\t1\n", "line 2");
+    bad("paw-session 1\noutput\tDP-1\t0\t1\t-x\n", "line 2");
+    bad("paw-session 1\noutput\tDP-1\t0\t1\t-----------\n", "line 2");
     bad("paw-session 1\nwindow\tDP-1\t0\t0\t0\t0\t1\n", "line 2");
     bad("paw-session 1\nlayout\tDP-1\t0\t1\tnan?\t1\n", "line 2");
     bad("paw-session 1\nlayout\tDP-1\t0\t4\t0.5\t1\t0.5,x\n", "line 2");

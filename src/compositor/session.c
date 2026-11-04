@@ -36,6 +36,10 @@ static void session_capture(struct sh_server *server, struct sh_session *session
         o->workspace = server->output_workspaces[i].current;
         struct wlr_output *output = find_output(server, name);
         o->tiling = output ? output_default_tiling(server, output) : server->output_workspaces[i].tiling;
+        _Static_assert(sizeof(server->output_workspaces[i].workspace_tiling) == SH_SESSION_WORKSPACES,
+                       "a session keeps every workspace's own tiling");
+        memcpy(o->workspace_tiling, server->output_workspaces[i].workspace_tiling,
+               sizeof(o->workspace_tiling));
         for (int workspace = 0; workspace < settings->workspaces &&
                                 session->layout_count < SH_SESSION_MAX_LAYOUTS;
              ++workspace) {
@@ -281,9 +285,11 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
     }
     const struct sh_settings *settings = server_settings(server);
     for (int i = 0; i < session->output_count; ++i) {
-        struct wlr_output *output = find_output(server, session->outputs[i].name);
-        if (output && session->outputs[i].tiling >= 0)
-            set_output_tiling(server, output, session->outputs[i].tiling == 1);
+        const struct sh_session_output *o = &session->outputs[i];
+        struct wlr_output *output = find_output(server, o->name);
+        if (output)
+            restore_output_tiling(server, output, o->tiling, o->workspace_tiling,
+                                  SH_SESSION_WORKSPACES);
     }
     for (int i = 0; i < session->layout_count; ++i) {
         const struct sh_session_layout *l = &session->layouts[i];

@@ -166,7 +166,15 @@ bool sh_session_write(const struct sh_session *session, FILE *file) {
         const struct sh_session_output *o = &session->outputs[i];
         fputs("output\t", file);
         write_field(file, o->name, false);
-        fprintf(file, "%d\t%d\n", o->workspace, o->tiling);
+        fprintf(file, "%d\t%d", o->workspace, o->tiling);
+        /* The workspaces' own toggles, "-1-0": only where one was toggled. */
+        int toggled = SH_SESSION_WORKSPACES;
+        while (toggled > 0 && o->workspace_tiling[toggled - 1] < 0)
+            --toggled;
+        for (int w = 0; w < toggled; ++w)
+            fprintf(file, "%s%c", w ? "" : "\t",
+                    o->workspace_tiling[w] < 0 ? '-' : o->workspace_tiling[w] ? '1' : '0');
+        fputc('\n', file);
     }
     for (int i = 0; i < session->layout_count; ++i) {
         const struct sh_session_layout *l = &session->layouts[i];
@@ -248,12 +256,19 @@ bool sh_session_read(struct sh_session *session, FILE *file, char *error, size_t
         char *f[16];
         int count = split_tabs(line, f, 16);
         bool ok = false;
-        if (!strcmp(f[0], "output") && count == 4 &&
+        if (!strcmp(f[0], "output") && (count == 4 || count == 5) &&
             session->output_count < SH_SESSION_MAX_OUTPUTS) {
             struct sh_session_output *o = &session->outputs[session->output_count];
             decode_into(f[1], o->name, sizeof(o->name));
             ok = parse_int(f[2], &o->workspace) && parse_int(f[3], &o->tiling) &&
                  o->name[0] && o->workspace >= 0;
+            memset(o->workspace_tiling, -1, sizeof(o->workspace_tiling));
+            const char *toggles = count == 5 ? f[4] : "";
+            ok = ok && strlen(toggles) <= SH_SESSION_WORKSPACES;
+            for (int w = 0; ok && toggles[w]; ++w) {
+                ok = toggles[w] == '-' || toggles[w] == '0' || toggles[w] == '1';
+                o->workspace_tiling[w] = toggles[w] == '-' ? -1 : toggles[w] == '1';
+            }
             session->output_count += ok;
         } else if (!strcmp(f[0], "layout") && (count == 6 || count == 7) &&
                    session->layout_count < SH_SESSION_MAX_LAYOUTS) {

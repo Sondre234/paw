@@ -358,6 +358,21 @@ void set_output_tiling(struct sh_server *server, struct wlr_output *output, bool
     apply_tiling(server, output);
 }
 
+void restore_output_tiling(struct sh_server *server, struct wlr_output *output, int tiles,
+                           const signed char *own, int count) {
+    int slot = output_slot(server, output->name);
+    bool changed = tiles >= 0 && output_default_tiling(server, output) != tiles;
+    if (changed)
+        server->output_workspaces[slot].tiling = tiles;
+    signed char *mine = server->output_workspaces[slot].workspace_tiling;
+    for (int i = 0; i < count && i < (int)sizeof(server->output_workspaces[slot].workspace_tiling); ++i) {
+        changed = changed || mine[i] != own[i];
+        mine[i] = own[i];
+    }
+    if (changed)
+        apply_tiling(server, output);
+}
+
 /* The rectangle a tile got in the last arrangement. */
 struct tile_lookup {
     void *window;

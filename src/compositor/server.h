@@ -1933,6 +1933,11 @@ void set_floating(struct sh_toplevel *toplevel, bool floating, bool at_cursor);
 void rehome_tiles(struct sh_server *server);
 void set_tiling(struct sh_server *server, struct wlr_output *output, bool enabled);
 void set_output_tiling(struct sh_server *server, struct wlr_output *output, bool enabled);
+/* Puts back the tiling a saved session had on `output`: on or off as a whole (`tiles`; -1 leaves
+ * it), and each workspace's own toggle of layout.tiling_per_workspace (`own`, `count` of them; -1
+ * follows the output). */
+void restore_output_tiling(struct sh_server *server, struct wlr_output *output, int tiles,
+                           const signed char *own, int count);
 void move_tile(struct sh_toplevel *toplevel, struct sh_toplevel *neighbour,
                struct wlr_output *output, bool horizontal, int sign);
 void configure_layouts(struct sh_server *server);

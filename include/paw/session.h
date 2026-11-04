@@ -19,6 +19,7 @@ enum {
     SH_SESSION_MAX_LAYOUTS = 160,
     SH_SESSION_MAX_COLUMNS = 16, /* columns of a scrolling strip that are saved */
     SH_SESSION_NAME_MAX = 64,
+    SH_SESSION_WORKSPACES = 10, /* workspaces whose own tiling toggle is saved */
 };
 
 enum sh_session_flag {
@@ -37,6 +38,9 @@ struct sh_session_output {
     char name[64];
     int workspace; /* the workspace it showed, from 0 */
     int tiling;    /* -1 unknown, 0 floating, 1 tiling */
+    /* Each workspace's own toggle (layout.tiling_per_workspace): -1 as the output, 0 floating,
+     * 1 tiling. */
+    signed char workspace_tiling[SH_SESSION_WORKSPACES];
 };
 
 struct sh_session_layout {
