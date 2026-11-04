@@ -106,6 +106,54 @@ std::pair<int, int> share(int total, int parts, int index) {
 constexpr double ratio_min = 0.1, ratio_max = 0.9;
 constexpr int count_max = 8;
 
+void write_tree(const Node *node, std::vector<sh_tile_node> &out) {
+    if (node->window) {
+        out.push_back({false, node->window, 0, -1});
+        return;
+    }
+    out.push_back({true, nullptr, node->ratio, node->forced ? *node->forced ? 1 : 0 : -1});
+    write_tree(node->children[0].get(), out);
+    write_tree(node->children[1].get(), out);
+}
+
+bool same_tree(const std::vector<sh_tile_node> &a, const std::vector<sh_tile_node> &b) {
+    return std::equal(a.begin(), a.end(), b.begin(), b.end(), [](const auto &x, const auto &y) {
+        return x.split == y.split && x.window == y.window && std::abs(x.ratio - y.ratio) < 1e-6 &&
+               x.forced == y.forced;
+    });
+}
+
+/* The subtree at nodes[at] in pre-order, `at` moved past it, holding only the windows still in
+ * `wanted` (each taken out as it is placed): a split left with one half gives way to it, and one
+ * left with none is gone. `whole` turns false when the nodes end inside the subtree. */
+std::unique_ptr<Node> rebuild(const sh_tile_node *nodes, int count, int &at, bool &whole,
+                              std::unordered_set<const void *> &wanted) {
+    if (at >= count) {
+        whole = false;
+        return nullptr;
+    }
+    const sh_tile_node &node = nodes[at++];
+    if (!node.split) {
+        if (!node.window || !wanted.erase(node.window))
+            return nullptr;
+        auto leaf = std::make_unique<Node>();
+        leaf->window = node.window;
+        return leaf;
+    }
+    auto first = rebuild(nodes, count, at, whole, wanted);
+    auto second = rebuild(nodes, count, at, whole, wanted);
+    if (!first || !second)
+        return first ? std::move(first) : std::move(second);
+    auto split = std::make_unique<Node>();
+    split->ratio = std::clamp(node.ratio, ratio_min, ratio_max);
+    if (node.forced >= 0)
+        split->forced = node.forced == 1;
+    first->parent = second->parent = split.get();
+    split->children[0] = std::move(first);
+    split->children[1] = std::move(second);
+    return split;
+}
+
 Node *leaf_at(Node *node, double x, double y) {
     if (node->window)
         return contains(node->box, x, y) ? node : nullptr;
@@ -1080,6 +1128,65 @@ void *sh_tiling_master(const sh_tiling *tiling, const char *output, int workspac
     std::vector<Node *> order;
     collect(found->second.get(), order);
     return order.front()->window;
+}
+
+int sh_tiling_tree(const sh_tiling *tiling, const char *output, int workspace,
+                   sh_tile_node *nodes, int max) {
+    if (!tiling || !output)
+        return 0;
+    auto found = tiling->roots.find({output, workspace});
+    if (found == tiling->roots.end())
+        return 0;
+    std::vector<sh_tile_node> tree;
+    write_tree(found->second.get(), tree);
+    if (static_cast<int>(tree.size()) > max)
+        return -1;
+    std::copy(tree.begin(), tree.end(), nodes);
+    return static_cast<int>(tree.size());
+}
+
+bool sh_tiling_tree_restore(sh_tiling *tiling, const char *output, int workspace,
+                            const sh_tile_node *nodes, int count) {
+    if (!tiling || !output || !nodes || count < 1)
+        return false;
+    Key key{output, workspace};
+    auto root = tiling->roots.find(key);
+    if (root == tiling->roots.end())
+        return false;
+    std::vector<sh_tile_node> before, after;
+    write_tree(root->second.get(), before);
+    std::unordered_set<const void *> wanted;
+    for (const sh_tile_node &node : before)
+        if (!node.split)
+            wanted.insert(node.window);
+    int at = 0;
+    bool whole = true;
+    auto rebuilt = rebuild(nodes, count, at, whole, wanted);
+    if (!whole || at != count || !rebuilt)
+        return false;
+    auto old = std::move(root->second);
+    root->second = std::move(rebuilt);
+    // What the nodes leave out joins as new windows do, taking the second half of the last leaf.
+    for (const sh_tile_node &node : before) {
+        if (node.split || !wanted.contains(node.window))
+            continue;
+        Node *last = root->second.get();
+        while (!last->window)
+            last = last->children[1].get();
+        auto extra = std::make_unique<Node>();
+        extra->window = node.window;
+        tiling->split_leaf(key, last, std::move(extra), false);
+    }
+    write_tree(root->second.get(), after);
+    bool changed = !same_tree(before, after);
+    // The same tree keeps the boxes of its last arrangement, which resizing reads.
+    if (!changed)
+        root->second = std::move(old);
+    std::vector<Node *> placed;
+    collect(root->second.get(), placed);
+    for (Node *leaf : placed)
+        tiling->leaves[leaf->window] = {leaf, key};
+    return changed;
 }
 
 void sh_tiling_set_scroll(sh_tiling *tiling, sh_scroll_follow follow, double width, double step,

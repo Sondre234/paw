@@ -1139,6 +1139,29 @@ bool sh_tiling_scroll_move(struct sh_tiling *tiling, const void *window, int ste
 bool sh_tiling_scroll_action(struct sh_tiling *tiling, const void *window, enum sh_action action);
 /* The first window of the tree, or NULL when it is empty. */
 void *sh_tiling_master(const struct sh_tiling *tiling, const char *output, int workspace);
+/* One node of a workspace's tree as a saved session keeps it: the tree in pre-order, each split
+ * followed by the nodes of its first half, then those of its second. The order of its leaves is
+ * also the order the layouts other than dwindle show the windows in. */
+struct sh_tile_node {
+    bool split;
+    void *window; /* a leaf's window; NULL for a split, or for a leaf whose window is gone */
+    double ratio; /* a split's share of its first half */
+    int forced;   /* the direction split_toggle keeps on a split: -1 none (its box's shape
+                   * decides), 0 stacked, 1 side by side */
+};
+/* Writes the tree of `workspace` on `output` into `nodes`; returns how many nodes it has, 0 for
+ * an empty tree, or -1 when that is more than `max`. */
+int sh_tiling_tree(const struct sh_tiling *tiling, const char *output, int workspace,
+                   struct sh_tile_node *nodes, int max);
+/* Rebuilds the tree of `workspace` on `output` after `nodes` (as sh_tiling_tree writes them):
+ * each leaf whose window is in that tree takes its place, with its splits' ratios and kept
+ * directions. A leaf whose window is NULL, tiled elsewhere or named twice is left out, the other
+ * half of its split taking the split's place. Windows of the tree that `nodes` leaves out follow
+ * in the order they had, each splitting the last as a new window does. False when that changes
+ * nothing, or `count` nodes are not one whole tree. Nothing is arranged until
+ * sh_tiling_arrange. */
+bool sh_tiling_tree_restore(struct sh_tiling *tiling, const char *output, int workspace,
+                            const struct sh_tile_node *nodes, int count);
 
 #ifdef __cplusplus
 }

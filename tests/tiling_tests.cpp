@@ -1049,6 +1049,88 @@ int main() {
             require(sh_tiling_pseudo({0, 0, 3, 2}, 400, 300) == sh_rect{0, 0, 3, 2},
                     "pseudo: a tiny tile");
         }
+        // A tree written out and rebuilt in another compositor, as a saved session restores it.
+        {
+            const sh_rect wide{0, 0, 1920, 1080};
+            int t[5];
+            sh_tiling *saved = sh_tiling_create();
+            // t0 | (t1 / (t2 | t3)), then t2 and t3 stacked by hand and t0 widened.
+            for (int i = 0; i < 4; ++i)
+                sh_tiling_insert(saved, "DP-1", 0, &t[i], nullptr, false, 0, 0);
+            arrange(saved, wide, 0);
+            require(sh_tiling_split_action(saved, &t[3], SH_SPLIT_TOGGLE) &&
+                        sh_tiling_resize_by(saved, &t[0], SH_EDGE_RIGHT, 200),
+                    "tree: arrangement not changed");
+            Placement want = arrange(saved, wide, 0);
+            sh_tile_node nodes[16];
+            int count = sh_tiling_tree(saved, "DP-1", 0, nodes, 16);
+            require(count == 7 && nodes[0].split && nodes[0].ratio > 0.55 && nodes[0].forced == -1 &&
+                        nodes[1].window == &t[0] && nodes[4].split && nodes[4].forced == 0 &&
+                        nodes[6].window == &t[3],
+                    "tree: not written in pre-order with its ratios and kept directions");
+            require(sh_tiling_tree(saved, "DP-1", 0, nodes, 6) == -1 &&
+                        sh_tiling_tree(saved, "DP-1", 1, nodes, 16) == 0,
+                    "tree: too small a buffer or an empty tree");
+
+            // The same windows opened in another order.
+            sh_tiling *fresh = sh_tiling_create();
+            for (int i : {2, 0, 3, 1})
+                sh_tiling_insert(fresh, "DP-1", 0, &t[i], nullptr, false, 0, 0);
+            require(arrange(fresh, wide, 0)[&t[0]].x != 0, "tree: already in place");
+            require(!sh_tiling_tree_restore(fresh, "DP-1", 0, nodes, count - 1) &&
+                        !sh_tiling_tree_restore(fresh, "DP-1", 0, nodes, count + 1) &&
+                        !sh_tiling_tree_restore(fresh, "DP-1", 1, nodes, count),
+                    "tree: a broken tree or an empty workspace taken");
+            require(sh_tiling_tree_restore(fresh, "DP-1", 0, nodes, count), "tree: not restored");
+            Placement got = arrange(fresh, wide, 0);
+            for (int i = 0; i < 4; ++i)
+                require(got[&t[i]] == want[&t[i]], "tree: a tile not where it was saved");
+            require(!sh_tiling_tree_restore(fresh, "DP-1", 0, nodes, count),
+                    "tree: restoring it again changed it");
+            // The other layouts read the leaves in their saved order.
+            require(sh_tiling_master(fresh, "DP-1", 0) == &t[0] &&
+                        sh_tiling_neighbour(fresh, &t[0], 1) == &t[1] &&
+                        sh_tiling_neighbour(fresh, &t[1], 1) == &t[2],
+                    "tree: order not restored");
+            // Its splits are its own: resizing them leaves the saved nodes alone.
+            require(sh_tiling_resize_by(fresh, &t[0], SH_EDGE_RIGHT, 100) &&
+                        sh_tiling_tree_restore(fresh, "DP-1", 0, nodes, count),
+                    "tree: resized tree not restored");
+
+            // t1 gone, t4 new and t3 named twice: t1's split gives way to its other half, the
+            // second t3 is passed over, and t4 splits the last leaf.
+            sh_tile_node partial[17];
+            std::copy(nodes, nodes + count, partial);
+            partial[3].window = nullptr;
+            sh_tile_node twice[] = {{true, nullptr, 0.5, -1}, {false, &t[3], 0, -1},
+                                    {false, &t[3], 0, -1}};
+            sh_tiling *others = sh_tiling_create();
+            for (int i : {0, 2, 3, 4})
+                sh_tiling_insert(others, "DP-1", 0, &t[i], nullptr, false, 0, 0);
+            require(sh_tiling_tree_restore(others, "DP-1", 0, partial, count), "tree: partial refused");
+            sh_tile_node back[16];
+            int left = sh_tiling_tree(others, "DP-1", 0, back, 16);
+            require(left == 7 && back[0].split && back[1].window == &t[0] && back[2].split &&
+                        back[2].forced == 0 && back[3].window == &t[2] && back[4].split &&
+                        back[4].forced == -1 && back[5].window == &t[3] && back[6].window == &t[4],
+                    "tree: a missing window's split not folded, or the new one misplaced");
+            sh_tiling *two = sh_tiling_create();
+            sh_tiling_insert(two, "DP-1", 0, &t[3], nullptr, false, 0, 0);
+            sh_tiling_insert(two, "DP-1", 0, &t[1], nullptr, false, 0, 0);
+            sh_tiling_insert(two, "DP-1", 1, &t[2], nullptr, false, 0, 0);
+            // t3 once; t1 comes after it, though it was not named; t2 is on another workspace.
+            twice[2].window = &t[2];
+            require(!sh_tiling_tree_restore(two, "DP-1", 0, twice, 3),
+                    "tree: already in that order, yet changed");
+            twice[2].window = &t[3];
+            require(!sh_tiling_tree_restore(two, "DP-1", 0, twice, 3) &&
+                        sh_tiling_workspace(two, &t[2]) == 1,
+                    "tree: a window named twice or tiled elsewhere moved");
+            sh_tiling_destroy(two);
+            sh_tiling_destroy(others);
+            sh_tiling_destroy(fresh);
+            sh_tiling_destroy(saved);
+        }
 
         // Tiny areas still produce positive sizes.
         placed = arrange(tiling, {0, 0, 3, 2}, 100);
