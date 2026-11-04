@@ -130,6 +130,16 @@ void session_file() {
     session->windows[1].scroll_column = 2;
     session->windows[1].scroll_row = 1;
     session->window_count = 2;
+    // DP-1's workspace 1: window 1 on the left, then window 0, stacked by hand.
+    strcpy(session->trees[0].output, "DP-1");
+    session->trees[0].workspace = 1;
+    session->trees[0].first = 0;
+    session->trees[0].count = 3;
+    session->tree_count = 1;
+    session->nodes[0] = {-1, 0.625, 0};
+    session->nodes[1] = {1, 0, -1};
+    session->nodes[2] = {0, 0, -1};
+    session->node_count = 3;
 
     char *buffer = nullptr;
     size_t size = 0;
@@ -137,8 +147,9 @@ void session_file() {
     require(out && sh_session_write(session.get(), out), "session not written");
     fclose(out);
     std::unique_ptr<char, decltype(&free)> text(buffer, free);
-    require(std::count(buffer, buffer + size, '\n') == 1 + 2 + 2 + 2, "one record per line");
-    require(strstr(buffer, "\noutput\tDP-1\t2\t1\t-1-0\n") &&
+    require(std::count(buffer, buffer + size, '\n') == 1 + 2 + 2 + 2 + 1, "one record per line");
+    require(strstr(buffer, "\ntree\tDP-1\t1\tv0.6250 w1 w0\n") &&
+                strstr(buffer, "\noutput\tDP-1\t2\t1\t-1-0\n") &&
                 strstr(buffer, "\noutput\tHDMI-A-1\t0\t-1\n"),
             buffer);
     FILE *in = fmemopen(buffer, size, "r");
@@ -172,6 +183,13 @@ void session_file() {
                 back->windows[0].scroll_column == 0 && back->windows[1].scroll_column == 2 &&
                 back->windows[1].scroll_row == 1,
             "scroll columns did not round-trip");
+    require(back->tree_count == 1 && !strcmp(back->trees[0].output, "DP-1") &&
+                back->trees[0].workspace == 1 && back->trees[0].first == 0 &&
+                back->trees[0].count == 3 && back->node_count == 3 &&
+                back->nodes[0].window == -1 && back->nodes[0].forced == 0 &&
+                std::abs(back->nodes[0].ratio - 0.625) < 1e-4 && back->nodes[1].window == 1 &&
+                back->nodes[2].window == 0 && back->nodes[2].forced == -1,
+            "tiling tree did not round-trip");
 
     auto bad = [](const char *body, const char *fragment) {
         FILE *file = fmemopen(const_cast<char *>(body), strlen(body), "r");
@@ -193,6 +211,17 @@ void session_file() {
     bad("paw-session 1\nlayout\tDP-1\t0\t4\t0.5\t1\t0.5,x\n", "line 2");
     bad("paw-session 1\nlayout\tDP-1\t0\t4\t0.5\t1\t2\n", "line 2");
     bad("paw-session 1\nwindow\tDP-1\t0\t0\t0\t0\t1\t1\ta\tb\t\t0\t1\n", "line 2");
+    // A tree's leaves name the windows before it, and its splits each have two halves.
+    const char *one = "paw-session 1\nwindow\tDP-1\t0\t1\t0\t0\t9\t9\ta\tb\n";
+    auto tree = [one](const char *record) { return std::string(one) + "tree\tDP-1\t0\t" + record + "\n"; };
+    bad(tree("s0.5 w0 w1").c_str(), "line 3");
+    bad(tree("s0.5 w0").c_str(), "line 3");
+    bad(tree("w0 w0").c_str(), "line 3");
+    bad(tree("s1.5 w0 w0").c_str(), "line 3");
+    bad(tree("snan w0 w0").c_str(), "line 3");
+    bad(tree("x0.5 w0 w0").c_str(), "line 3");
+    bad(tree("").c_str(), "line 3");
+    bad(("paw-session 1\ntree\tDP-1\t0\tw0\n" + std::string(one + 14)).c_str(), "line 2");
 }
 
 void session_matching() {
