@@ -37,6 +37,10 @@ tablet input, power saving when idle and HDR.
   `paw fetch`, and toys such as `paw cat`, `paw wrapped` and `paw tour`.
 - A right click on the Quick Settings button lists the sound outputs to switch to, as one on the
   bar's volume does.
+- Arrangements in the tiling button's menu: the saved sessions, one restored with a click,
+  launching what is missing, and the desktop saved as a new one, over one, renamed or deleted.
+  A session now keeps each workspace's tiling tree and its own tiling toggle, so that a restore
+  puts every tile back into its slot, a window it launches too as it opens.
 - A tile dragged by its top edge moves within the tiling instead of floating to be maximized at
   the top of the screen; `windows.snap.maximize_tiles = true` maximizes it there as before.
 - A window rule's `controls = true` puts paw's window controls over a window drawing its own
