@@ -768,6 +768,95 @@ int main(int argc, char **argv) {
         click(entry("Dwindle"));
         if (!waitFor([&] { return shellLayout() == "dwindle" && !menuOpen(); }))
             return fail("the tiling button's menu did not switch back to dwindle");
+
+        // Arrangements: the saved sessions, one restored (launching what is missing) with a
+        // click, and saving, updating, renaming and deleting them.
+        auto named = [&](const QString &objectName, const QString &text = {}) -> QQuickItem * {
+            auto *menu = find(root, "tilingMenu");
+            std::function<QQuickItem *(QQuickItem *)> look = [&](QQuickItem *parent) -> QQuickItem * {
+                for (auto *item : parent->childItems()) {
+                    if (item->objectName() == objectName && item->isVisible() &&
+                        (text.isEmpty() || item->property("text") == text))
+                        return item;
+                    if (auto *found = look(item))
+                        return found;
+                }
+                return nullptr;
+            };
+            return menu ? look(menu) : nullptr;
+        };
+        // The saved arrangements' submenu, with its entry `objectName` shown, and that entry's
+        // submenu open when it ends in "Menu".
+        auto openArrangements = [&](const QString &objectName = "arrangementRestore") {
+            if (!openMenu() || !waitFor([&] { return named("arrangementsMenu") != nullptr; }))
+                return false;
+            click(named("arrangementsMenu"));
+            if (!waitFor([&] { return named("arrangementRestore", "work") && named(objectName); }))
+                return false;
+            if (!objectName.endsWith("Menu"))
+                return true;
+            click(named(objectName));
+            return waitFor([&] { return named(objectName.chopped(4), "work") != nullptr; });
+        };
+        auto promptOpen = [&] {
+            auto *prompt = find(root, "arrangementPrompt");
+            return root->property("audioPopup").toString() == "arrangement" && prompt &&
+                   prompt->property("open").toBool() && inPopover(prompt) &&
+                   find(prompt, "arrangementName")->hasActiveFocus();
+        };
+        auto type = [&](const QString &text) {
+            auto *field = find(root, "arrangementName");
+            QTest::keyClick(field->window(), Qt::Key_A, Qt::ControlModifier);
+            for (QChar c : text)
+                QTest::keyClick(field->window(), c.toLatin1());
+            QTest::keyClick(field->window(), Qt::Key_Return);
+        };
+        // Whether an item shows `text` in itself or an item in it.
+        std::function<bool(QQuickItem *, const QString &)> says = [&](QQuickItem *item,
+                                                                       const QString &text) {
+            if (item->isVisible() && item->property("text") == text)
+                return true;
+            for (auto *child : item->childItems())
+                if (says(child, text))
+                    return true;
+            return false;
+        };
+        if (!openArrangements() || !says(named("arrangementRestore", "work"), "3 windows"))
+            return fail("the tiling button's menu does not list the saved arrangements");
+        click(named("arrangementRestore", "work"));
+        if (!waitFor([&] { return requests.last() == "session restore work launch" && !menuOpen(); }))
+            return fail("picking a saved arrangement did not restore it and launch what is missing");
+        if (!openArrangements("arrangementSave"))
+            return fail("the arrangements did not open again");
+        click(named("arrangementSave"));
+        if (!waitFor(promptOpen) || menuOpen())
+            return fail("Save current arrangement… did not ask for a name");
+        auto *confirm = find(root, "arrangementConfirm");
+        type("two words");
+        if (!promptOpen() || confirm->property("enabled").toBool() ||
+            requests.last().startsWith("session save"))
+            return fail("the name prompt took a name the compositor refuses");
+        type("work");
+        if (!waitFor([&] { return requests.last() == "session save work" && !promptOpen(); }))
+            return fail("saving over an arrangement of the same name did not replace it");
+        if (!openArrangements("arrangementUpdateMenu"))
+            return fail("Update did not list the saved arrangements");
+        click(named("arrangementUpdate", "work"));
+        if (!waitFor([&] { return requests.count("session save work") == 2 && !menuOpen(); }))
+            return fail("Update did not save the windows over the arrangement");
+        if (!openArrangements("arrangementRenameMenu"))
+            return fail("Rename did not list the saved arrangements");
+        click(named("arrangementRename", "work"));
+        if (!waitFor(promptOpen) || find(root, "arrangementName")->property("text") != "work")
+            return fail("Rename did not ask for the new name");
+        type("job");
+        if (!waitFor([&] { return requests.last() == "session rename work job" && !promptOpen(); }))
+            return fail("renaming an arrangement did not ask the compositor to");
+        if (!openArrangements("arrangementDeleteMenu"))
+            return fail("Delete did not list the saved arrangements");
+        click(named("arrangementDelete", "work"));
+        if (!waitFor([&] { return requests.last() == "session delete work" && !menuOpen(); }))
+            return fail("deleting an arrangement did not ask the compositor to");
     }
     click(workspace(3));
     if (!waitFor([&] { return workspace(3)->property("current").toBool(); }) ||
@@ -1194,6 +1283,12 @@ int main(int argc, char **argv) {
         subscriber->write("power -\n");
         if (!waitFor([&] { return !shown("tilingPower"); }))
             return fail("the tiling bar's power module stayed with nothing to run");
+        // A right click on its tiling module opens the tiling button's menu.
+        click(item("tilingBarToggle"), Qt::RightButton);
+        if (!waitFor([&] { return item("tilingMenu") && item("tilingMenu")->property("open").toBool(); }) ||
+            !toggled)
+            return fail("right-clicking the tiling bar's tiling module did not open the tiling menu");
+        QMetaObject::invokeMethod(root, "closeMenus");
         // Tiling off from the bar: the taskbar comes back, and the surface with it.
         click(item("tilingBarToggle"));
         if (!waitFor([&] { return !toggled && !panelTiling() && strip->isVisible(); }) ||

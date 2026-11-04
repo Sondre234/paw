@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later AND MIT */
 /* Sessions: `session save NAME` writes what every output and window is doing to a file (see
- * paw/session.h); `session restore NAME [launch]` puts matching windows back, and with
- * `launch` starts the applications that are missing, placing their windows as they open. A login
- * session saves itself as `last` as it ends and restores that as the next starts
- * (session.restore). */
+ * paw/session.h); `session restore NAME [launch]` puts matching windows back, each tile into its
+ * slot of its workspace's tiling, and with `launch` starts the applications that are missing,
+ * placing their windows, into their slots too, as they open. A login session saves itself as
+ * `last` as it ends and restores that as the next starts (session.restore). */
 #include "server.h"
 
 static void session_read_command(struct sh_toplevel *toplevel, struct sh_session_window *window) {
@@ -22,6 +22,47 @@ static void session_read_command(struct sh_toplevel *toplevel, struct sh_session
         sh_session_set_command(window, cmdline, length);
 }
 
+/* The tiling tree of each workspace that tiles two windows or more, its leaves naming the windows
+ * saved (saved[i] is window i's). A tree with a window that was not saved, past
+ * SH_SESSION_MAX_WINDOWS, is left out. */
+static void session_capture_trees(struct sh_server *server, struct sh_session *session,
+                                  struct sh_toplevel *const *saved) {
+    const struct sh_settings *settings = server_settings(server);
+    struct sh_tile_node nodes[SH_SESSION_MAX_NODES];
+    for (int o = 0; o < session->output_count; ++o) {
+        const char *name = session->outputs[o].name;
+        for (int workspace = 0;
+             workspace < settings->workspaces && session->tree_count < SH_SESSION_MAX_WINDOWS;
+             ++workspace) {
+            int count = sh_tiling_tree(server->tiling, name, workspace, nodes,
+                                       SH_SESSION_MAX_NODES - session->node_count);
+            if (count < 3) // none, a window alone, or too many
+                continue;
+            struct sh_session_node *out = &session->nodes[session->node_count];
+            bool whole = true;
+            for (int n = 0; n < count && whole; ++n) {
+                out[n] = (struct sh_session_node){-1, nodes[n].ratio, nodes[n].forced};
+                if (nodes[n].split)
+                    continue;
+                out[n].ratio = 0;
+                out[n].forced = -1;
+                for (int i = 0; i < session->window_count && out[n].window < 0; ++i)
+                    if (saved[i] == nodes[n].window)
+                        out[n].window = i;
+                whole = out[n].window >= 0;
+            }
+            if (!whole)
+                continue;
+            struct sh_session_tree *tree = &session->trees[session->tree_count++];
+            snprintf(tree->output, sizeof(tree->output), "%s", name);
+            tree->workspace = workspace;
+            tree->first = session->node_count;
+            tree->count = count;
+            session->node_count += count;
+        }
+    }
+}
+
 static void session_capture(struct sh_server *server, struct sh_session *session) {
     const struct sh_settings *settings = server_settings(server);
     memset(session, 0, sizeof(*session));
@@ -36,6 +77,10 @@ static void session_capture(struct sh_server *server, struct sh_session *session
         o->workspace = server->output_workspaces[i].current;
         struct wlr_output *output = find_output(server, name);
         o->tiling = output ? output_default_tiling(server, output) : server->output_workspaces[i].tiling;
+        _Static_assert(sizeof(server->output_workspaces[i].workspace_tiling) == SH_SESSION_WORKSPACES,
+                       "a session keeps every workspace's own tiling");
+        memcpy(o->workspace_tiling, server->output_workspaces[i].workspace_tiling,
+               sizeof(o->workspace_tiling));
         for (int workspace = 0; workspace < settings->workspaces &&
                                 session->layout_count < SH_SESSION_MAX_LAYOUTS;
              ++workspace) {
@@ -64,11 +109,13 @@ static void session_capture(struct sh_server *server, struct sh_session *session
         }
     }
     // Oldest first, so that restoring in this order ends with the newest on top.
+    struct sh_toplevel *saved[SH_SESSION_MAX_WINDOWS];
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         if (toplevel->unmanaged || !toplevel_mapped(toplevel) || toplevel->group_hidden ||
             toplevel->swallowed || session->window_count >= SH_SESSION_MAX_WINDOWS)
             continue;
+        saved[session->window_count] = toplevel;
         struct sh_session_window *w = &session->windows[session->window_count++];
         const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
         snprintf(w->output, sizeof(w->output), "%s", toplevel->output);
@@ -106,6 +153,7 @@ static void session_capture(struct sh_server *server, struct sh_session *session
             w->scroll_row = row + 1;
         }
     }
+    session_capture_trees(server, session, saved);
 }
 
 /* Creates `path` and the directories above it (for the user alone), as `mkdir -p`. */
@@ -216,25 +264,53 @@ static void session_place(struct sh_server *server, struct sh_toplevel *toplevel
         set_fullscreen(toplevel, true);
 }
 
-/* Puts the tiles of the scrolling layout back into the columns they sat in, with the saved
- * widths. Only windows found now are placed; the ones launched by the restore arrive later and
- * open as usual, right of the focused column. */
-static void session_restore_columns(struct sh_server *server, const struct sh_session *session,
-                                    struct sh_toplevel *const *live, const int *assignment) {
+/* A restore some of whose windows are still to open: its session, to put each into its tile as
+ * it opens (session_settle), until the last is due. */
+struct sh_restoring {
+    struct sh_session session;
+    unsigned serial;
+    bool opened[SH_SESSION_MAX_WINDOWS]; // opened since the last settle
+    struct wl_event_source *settle;
+};
+
+/* Puts the windows found of `session` (placed[i] is saved window i's, or NULL) back into the slots
+ * of their workspaces' tiling trees and the columns of their scrolling strips, with the saved
+ * splits and widths: on every workspace, or only on `workspace` of `output` when that is given.
+ * The tiles of a workspace that the session does not name follow its own, as new windows do. */
+static void session_restore_tiles(struct sh_server *server, const struct sh_session *session,
+                                  struct sh_toplevel *const *placed, const char *only_output,
+                                  int only_workspace) {
     const struct sh_settings *settings = server_settings(server);
+    for (int i = 0; i < session->tree_count; ++i) {
+        const struct sh_session_tree *t = &session->trees[i];
+        struct wlr_output *output = find_output(server, t->output);
+        if (!output || t->workspace >= settings->workspaces ||
+            (only_output && (strcmp(t->output, only_output) || t->workspace != only_workspace)))
+            continue;
+        struct sh_tile_node nodes[SH_SESSION_MAX_NODES];
+        for (int n = 0; n < t->count; ++n) {
+            const struct sh_session_node *saved = &session->nodes[t->first + n];
+            nodes[n] = (struct sh_tile_node){saved->window < 0,
+                                             saved->window >= 0 ? placed[saved->window] : NULL,
+                                             saved->ratio, saved->forced};
+        }
+        if (sh_tiling_tree_restore(server->tiling, output->name, t->workspace, nodes, t->count))
+            reflow_output(server, output);
+    }
     for (int i = 0; i < session->layout_count; ++i) {
         const struct sh_session_layout *l = &session->layouts[i];
         struct wlr_output *output = find_output(server, l->output);
-        if (!output || l->workspace >= settings->workspaces || l->layout != SH_LAYOUT_SCROLL)
+        if (!output || l->workspace >= settings->workspaces || l->layout != SH_LAYOUT_SCROLL ||
+            (only_output && (strcmp(l->output, only_output) || l->workspace != only_workspace)))
             continue;
         void *windows[SH_SESSION_MAX_WINDOWS];
         int columns[SH_SESSION_MAX_WINDOWS], rows[SH_SESSION_MAX_WINDOWS], count = 0;
         for (int j = 0; j < session->window_count; ++j) {
             const struct sh_session_window *saved = &session->windows[j];
-            if (assignment[j] < 0 || saved->scroll_column < 1 || saved->workspace != l->workspace ||
+            if (!placed[j] || saved->scroll_column < 1 || saved->workspace != l->workspace ||
                 strcmp(saved->output, l->output) != 0)
                 continue;
-            struct sh_toplevel *toplevel = live[assignment[j]];
+            struct sh_toplevel *toplevel = placed[j];
             if (!toplevel->tiled || strcmp(toplevel->output, output->name) != 0)
                 continue;
             windows[count] = toplevel;
@@ -246,6 +322,52 @@ static void session_restore_columns(struct sh_server *server, const struct sh_se
             reflow_output(server, output);
     }
 }
+
+static void session_restore_end(struct sh_server *server) {
+    struct sh_restoring *restore = server->restoring;
+    if (!restore)
+        return;
+    if (restore->settle)
+        wl_event_source_remove(restore->settle);
+    free(restore);
+    server->restoring = NULL;
+}
+
+/* Whether a window the restore waits for may still open. */
+static bool session_waiting(struct sh_server *server, unsigned serial) {
+    int64_t now = now_ms();
+    for (size_t i = 0; i < sizeof(server->session_pending) / sizeof(*server->session_pending); ++i)
+        if (server->session_pending[i].serial == serial && server->session_pending[i].deadline >= now)
+            return true;
+    return false;
+}
+
+/* Once the windows the restore waited for have opened and been tiled as their rules say, each
+ * goes into its slot of its workspace's tiling. */
+static void session_settle(void *data) {
+    struct sh_server *server = data;
+    struct sh_restoring *restore = server->restoring;
+    restore->settle = NULL;
+    const struct sh_session *session = &restore->session;
+    struct sh_toplevel *placed[SH_SESSION_MAX_WINDOWS] = {NULL};
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (toplevel->session_restore == restore->serial && toplevel_mapped(toplevel) &&
+            toplevel->session_index < session->window_count)
+            placed[toplevel->session_index] = toplevel;
+    }
+    for (int i = 0; i < session->window_count; ++i) {
+        if (!restore->opened[i])
+            continue;
+        restore->opened[i] = false;
+        session_restore_tiles(server, session, placed, session->windows[i].output,
+                              session->windows[i].workspace);
+    }
+    if (!session_waiting(server, restore->serial))
+        session_restore_end(server);
+}
+
+void session_finish(struct sh_server *server) { session_restore_end(server); }
 
 /* How long the windows of a restore that are still to open have to open: those launched by hand,
  * and those a login session's startup, autostart or restore starts, which may take a while
@@ -268,22 +390,28 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
         snprintf(error, error_size, "no session named %s", name);
         return false;
     }
-    struct sh_session *session = malloc(sizeof(*session));
-    bool ok = session && sh_session_read(session, file, error, error_size);
+    struct sh_restoring *restore = calloc(1, sizeof(*restore));
+    bool ok = restore && sh_session_read(&restore->session, file, error, error_size);
     fclose(file);
-    if (!session) {
+    if (!restore) {
         snprintf(error, error_size, "out of memory");
         return false;
     }
     if (!ok) {
-        free(session);
+        free(restore);
         return false;
     }
+    // The windows a restore before this one still waits for open as they would without it.
+    session_restore_end(server);
+    struct sh_session *session = &restore->session;
+    restore->serial = ++server->session_restore_serial;
     const struct sh_settings *settings = server_settings(server);
     for (int i = 0; i < session->output_count; ++i) {
-        struct wlr_output *output = find_output(server, session->outputs[i].name);
-        if (output && session->outputs[i].tiling >= 0)
-            set_output_tiling(server, output, session->outputs[i].tiling == 1);
+        const struct sh_session_output *o = &session->outputs[i];
+        struct wlr_output *output = find_output(server, o->name);
+        if (output)
+            restore_output_tiling(server, output, o->tiling, o->workspace_tiling,
+                                  SH_SESSION_WORKSPACES);
     }
     for (int i = 0; i < session->layout_count; ++i) {
         const struct sh_session_layout *l = &session->layouts[i];
@@ -315,13 +443,16 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
     sh_session_match(session->windows, session->window_count, live_app_ids, live_titles,
                      live_count, assignment);
     *restored = *launched = *waiting = *missing = 0;
-    struct sh_toplevel *focus = NULL;
+    struct sh_toplevel *focus = NULL, *placed[SH_SESSION_MAX_WINDOWS] = {NULL};
     for (int i = 0; i < session->window_count; ++i) {
         const struct sh_session_window *saved = &session->windows[i];
-        if (assignment[i] >= 0) {
-            session_place(server, live[assignment[i]], saved);
+        placed[i] = assignment[i] >= 0 ? live[assignment[i]] : NULL;
+        if (placed[i]) {
+            session_place(server, placed[i], saved);
+            placed[i]->session_restore = restore->serial;
+            placed[i]->session_index = i;
             if (saved->flags & SH_SESSION_FOCUSED)
-                focus = live[assignment[i]];
+                focus = placed[i];
             ++*restored;
             continue;
         }
@@ -336,13 +467,15 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
         if (slot < slots && (started || (launch && argv && session_spawn(argv)))) {
             server->session_pending[slot].window = *saved;
             server->session_pending[slot].deadline = now + (login ? LOGIN_PENDING_MS : PENDING_MS);
+            server->session_pending[slot].serial = restore->serial;
+            server->session_pending[slot].index = i;
             ++*(started ? waiting : launched);
         } else {
             ++*missing;
         }
         free(argv);
     }
-    session_restore_columns(server, session, live, assignment);
+    session_restore_tiles(server, session, placed, NULL, 0);
     for (int i = 0; i < session->output_count; ++i) {
         struct wlr_output *output = find_output(server, session->outputs[i].name);
         if (output && session->outputs[i].workspace < settings->workspaces)
@@ -351,7 +484,10 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
     if (focus && toplevel_visible(focus))
         focus_toplevel(focus);
     notify_subscribers(server);
-    free(session);
+    if (*launched || *waiting)
+        server->restoring = restore;
+    else
+        free(restore);
     return true;
 }
 
@@ -414,6 +550,15 @@ bool session_claim(struct sh_server *server, struct sh_toplevel *toplevel,
             continue;
         const struct sh_session_window *saved = &server->session_pending[i].window;
         server->session_pending[i].deadline = 0; // claimed
+        struct sh_restoring *restore = server->restoring;
+        if (restore && server->session_pending[i].serial == restore->serial) {
+            toplevel->session_restore = restore->serial;
+            toplevel->session_index = server->session_pending[i].index;
+            restore->opened[toplevel->session_index] = true;
+            if (!restore->settle)
+                restore->settle = wl_event_loop_add_idle(
+                    wl_display_get_event_loop(server->wl_display), session_settle, server);
+        }
         if (!ruled)
             memset(rule, 0, sizeof(*rule)), rule->floating = -1;
         snprintf(rule->output, sizeof(rule->output), "%s", saved->output);

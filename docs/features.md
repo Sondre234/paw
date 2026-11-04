@@ -125,7 +125,7 @@ leaves out being empty:
 | `volume` | The volume: a click shows each application's, a right click the outputs, a middle click mutes, the wheel turns it. |
 | `battery` | The charge, only where there is a battery. |
 | `notifications` | A bell with the unread count; a click opens them, a right click toggles do-not-disturb. |
-| `tiling` | Tiling, which a click turns off (and, with `always = true`, on again). |
+| `tiling` | Tiling, which a click turns off (and, with `always = true`, on again); a right click opens the [tiling button's menu](#tiling-layouts), with the saved arrangements. |
 | `profiles`, `wallpapers` | The [appearance profiles](#appearance-profiles) (with two or more) and the wallpaper picker. |
 | `quick_settings` | [Quick Settings](#quick-settings). |
 | `power` | The [power](#power) menu by it. |
@@ -2168,12 +2168,13 @@ MASTER_COUNT`.
 
 - **scroll**: see [Scrolling layout](#scrolling-layout).
 
-A right click on the panel's tiling button opens its menu: what the workspace the monitor shows
-does now, Floating or the layout it tiles with, at the top with its icon, then the other
-layouts, each with an icon of how it lays windows out, and Floating while it tiles. A layout
-picked while the workspace floats turns tiling on with it. The button itself shows the same icon
-as the menu's title: the layout's while the workspace tiles, two overlapping windows while it
-floats.
+A right click on the panel's tiling button (or on the tiling bar's `tiling` module) opens its
+menu: what the workspace the monitor shows does now, Floating or the layout it tiles with, at the
+top with its icon, then the other layouts, each with an icon of how it lays windows out, and
+Floating while it tiles. A layout picked while the workspace floats turns tiling on with it. The
+button itself shows the same icon as the menu's title: the layout's while the workspace tiles,
+two overlapping windows while it floats. The menu ends with
+[Arrangements](#arrangements-in-the-tiling-menu), the windows' arrangements saved to come back to.
 
 The layouts other than dwindle order the tiles as a list (the dwindle tree read left to
 right): a new window joins the end wherever it is opened or dropped, and Super + Shift +
@@ -2242,8 +2243,9 @@ command palette, or bind them (config/init.lua has the lines, commented out).
 The tiles glide to their new places as after any change to the tiling. All three work in
 dwindle only: in master, spiral, monocle and scroll they do nothing, and a pseudotiled window
 fills its tile there until its workspace is in dwindle again. They leave a fullscreen window
-alone. Toggled splits and pseudotiling last while the compositor runs, reloads included, but a
-saved session does not keep them, as it does not keep dwindle's splits.
+alone. Toggled splits and pseudotiling last while the compositor runs, reloads included. A
+[saved session](#sessions) keeps the toggled splits, with where every split is, but not
+pseudotiling.
 
 Hyprland binds `togglesplit` to Super + J and `pseudo` to Super + P, which paw gives to
 `focus_next` and the command palette, so the example lines add Ctrl or Alt:
@@ -3679,25 +3681,54 @@ started and skipped, and says why an entry failed to start.
 
 `paw msg session save NAME` writes what the desktop looks like to
 `$XDG_STATE_HOME/paw/sessions/NAME` (`~/.local/state/paw/sessions`): each monitor's
-current workspace, tiling on or off and the tiling layouts of its workspaces, and for every
+current workspace, tiling on or off (and with `layout.tiling_per_workspace` each workspace's
+own), the tiling layouts of its workspaces and where each tile sits in them, and for every
 window its monitor, workspace, floating place, tiled, floating, minimized, sticky, maximized,
 fullscreen, scratchpad, kept-above and focus state, the app ID and title to find it by, and the command line
 it was started with. `session restore NAME` puts every window that matches back where it was (app
-ID and title first, then app ID alone; a window is matched once), switches the monitors to their
-saved workspaces and refocuses the window that had focus. Windows of applications that are no
+ID and title first, then app ID alone; a window is matched once), each tile into its slot of its
+workspace's tiling, switches the monitors to their saved workspaces and refocuses the window that
+had focus. Windows the session does not hold stay where they are. Windows of applications that are no
 longer running are left alone, unless the request is `session restore NAME launch`, which
-starts their saved command lines and places each new window as it opens (the first window with
-the app ID, within 30 seconds). `session list` prints `NAME`, its window count and when it
-was saved; `session delete NAME` removes one. Names are letters, digits, `.`, `_` and `-`.
+starts their saved command lines and places each new window as it opens, into its slot too (the
+first window with the app ID, within 30 seconds). `session list` prints `NAME`, its window count
+and when it was saved; `session rename NAME NEW` renames one, never over another, and `session
+delete NAME` removes one. Names are 1 to 63 letters, digits, `.`, `_` and `-`, not starting with
+a dot. The [tiling button's menu](#arrangements-in-the-tiling-menu) does all of this too.
 Applications that do not restart from their own command line (Flatpak launchers, single-instance
 programs that hand over to a running copy) are matched but may not relaunch. A window that
 floated only because it was snapped or maximized on a monitor that tiles is restored as a tile,
 maximized again if it was, so turning tiling on brings it back like any other such window.
 
-For workspaces that tile with the scrolling layout the session also keeps the width of each
-column and which column, and place in its stack, each tile had; a restore puts the windows it
-finds back into those columns. A window started by `restore ... launch` arrives later and opens
-as usual, right of the focused column.
+Each workspace that tiles keeps its tiling as a tree: the slot each tile has, in dwindle where
+every split is and which way `split_toggle` turned it, and so the order the other layouts show
+the tiles in. A restore rebuilds it with the windows it finds, a missing window's place going to
+the tiles beside it, and those the session does not name following the others as new windows
+would; as a window `restore ... launch` started opens, it takes its own slot back. For workspaces
+that tile with the scrolling layout the session also keeps the width of each column and which
+column, and place in its stack, each tile had; a restore puts the windows back into those
+columns, those it started too as they open.
+
+### Arrangements in the tiling menu
+
+The tiling button's menu (a right click on it, or on the tiling bar's `tiling` module) lists the
+saved sessions under **Arrangements**, each with how many windows it holds. Picking one restores
+it as `session restore NAME launch` does: the windows go back to their monitors, workspaces,
+places and tiles, each workspace tiles or floats as it did, and the applications not running are
+started. Below the list:
+
+- **Save current arrangement…** asks for a name and saves the desktop as it is under it; a name
+  already taken replaces that one, as the prompt says.
+- **Update** saves the desktop as it is over one of them, **Rename** asks for a new name for one,
+  and **Delete** removes one.
+
+`last`, the one a standalone session saves as it ends, is among them. To restore one with a key,
+bind `spawn` to `paw msg`:
+
+```lua
+{ mods = { "Super", "Alt" }, key = "1", action = "spawn",
+  command = { "paw", "msg", "session", "restore", "coding", "launch" } },
+```
 
 ### The last session
 

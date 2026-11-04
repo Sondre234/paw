@@ -80,6 +80,16 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     assert mode == 0o600, oct(mode)
     listing = msg("session", "list").split("\t")
     assert listing[0] == "work" and listing[1] == "3", listing
+    # Renamed, never over another session.
+    assert msg("session", "rename", "work", "desk") == ""
+    assert msg("session", "list").split("\t")[0] == "desk"
+    assert "no session named work" in msg("session", "rename", "work", "other", ok=False)
+    assert "session name" in msg("session", "rename", "desk", "../x", ok=False)
+    msg("session", "save", "other")
+    assert "a session named other exists" in msg("session", "rename", "desk", "other", ok=False)
+    assert msg("session", "rename", "desk", "work") == ""
+    assert msg("session", "delete", "other") == ""
+    assert [line.split("\t")[0] for line in msg("session", "list").splitlines()] == ["work"]
 
     # Scramble everything.
     msg("workspace", "1")

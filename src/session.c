@@ -166,7 +166,15 @@ bool sh_session_write(const struct sh_session *session, FILE *file) {
         const struct sh_session_output *o = &session->outputs[i];
         fputs("output\t", file);
         write_field(file, o->name, false);
-        fprintf(file, "%d\t%d\n", o->workspace, o->tiling);
+        fprintf(file, "%d\t%d", o->workspace, o->tiling);
+        /* The workspaces' own toggles, "-1-0": only where one was toggled. */
+        int toggled = SH_SESSION_WORKSPACES;
+        while (toggled > 0 && o->workspace_tiling[toggled - 1] < 0)
+            --toggled;
+        for (int w = 0; w < toggled; ++w)
+            fprintf(file, "%s%c", w ? "" : "\t",
+                    o->workspace_tiling[w] < 0 ? '-' : o->workspace_tiling[w] ? '1' : '0');
+        fputc('\n', file);
     }
     for (int i = 0; i < session->layout_count; ++i) {
         const struct sh_session_layout *l = &session->layouts[i];
@@ -188,6 +196,24 @@ bool sh_session_write(const struct sh_session *session, FILE *file) {
         fputs(w->command, file); /* already encoded */
         if (w->scroll_column > 0)
             fprintf(file, "\t%d\t%d", w->scroll_column, w->scroll_row);
+        fputc('\n', file);
+    }
+    /* After the windows, which their leaves name: "s0.5000 w0 v0.6000 w1 w2". */
+    for (int i = 0; i < session->tree_count; ++i) {
+        const struct sh_session_tree *t = &session->trees[i];
+        fputs("tree\t", file);
+        write_field(file, t->output, false);
+        fprintf(file, "%d\t", t->workspace);
+        for (int n = 0; n < t->count; ++n) {
+            const struct sh_session_node *node = &session->nodes[t->first + n];
+            if (n)
+                fputc(' ', file);
+            if (node->window >= 0)
+                fprintf(file, "w%d", node->window);
+            else
+                fprintf(file, "%c%.4f", node->forced < 0 ? 's' : node->forced ? 'h' : 'v',
+                        node->ratio);
+        }
         fputc('\n', file);
     }
     return !ferror(file);
@@ -225,6 +251,40 @@ static bool parse_int(const char *text, int *value) {
     return true;
 }
 
+/* A tree record's nodes, "s0.5000 w0 v0.6000 w1 w2": a split is 's' (the shape of its box
+ * decides its direction), 'h' (side by side) or 'v' (stacked) and its ratio, a leaf 'w' and the
+ * index of a window read before it. False unless they make one whole tree. */
+static bool read_tree(struct sh_session *session, char *text, struct sh_session_tree *tree) {
+    int open = 1; /* subtrees still to come */
+    char *saved;
+    for (char *token = strtok_r(text, " ", &saved); token; token = strtok_r(NULL, " ", &saved)) {
+        if (!open || session->node_count == SH_SESSION_MAX_NODES)
+            return false;
+        struct sh_session_node *node = &session->nodes[session->node_count];
+        if (token[0] == 'w') {
+            if (!parse_int(token + 1, &node->window) || node->window < 0 ||
+                node->window >= session->window_count)
+                return false;
+            node->ratio = 0;
+            node->forced = -1;
+            --open;
+        } else if (token[0] == 's' || token[0] == 'h' || token[0] == 'v') {
+            char *end;
+            node->window = -1;
+            node->forced = token[0] == 's' ? -1 : token[0] == 'h';
+            node->ratio = strtod(token + 1, &end);
+            if (end == token + 1 || *end || !(node->ratio > 0 && node->ratio < 1))
+                return false;
+            ++open;
+        } else {
+            return false;
+        }
+        ++session->node_count;
+        ++tree->count;
+    }
+    return open == 0;
+}
+
 bool sh_session_read(struct sh_session *session, FILE *file, char *error, size_t error_size) {
     memset(session, 0, sizeof(*session));
     char line[8192];
@@ -248,12 +308,19 @@ bool sh_session_read(struct sh_session *session, FILE *file, char *error, size_t
         char *f[16];
         int count = split_tabs(line, f, 16);
         bool ok = false;
-        if (!strcmp(f[0], "output") && count == 4 &&
+        if (!strcmp(f[0], "output") && (count == 4 || count == 5) &&
             session->output_count < SH_SESSION_MAX_OUTPUTS) {
             struct sh_session_output *o = &session->outputs[session->output_count];
             decode_into(f[1], o->name, sizeof(o->name));
             ok = parse_int(f[2], &o->workspace) && parse_int(f[3], &o->tiling) &&
                  o->name[0] && o->workspace >= 0;
+            memset(o->workspace_tiling, -1, sizeof(o->workspace_tiling));
+            const char *toggles = count == 5 ? f[4] : "";
+            ok = ok && strlen(toggles) <= SH_SESSION_WORKSPACES;
+            for (int w = 0; ok && toggles[w]; ++w) {
+                ok = toggles[w] == '-' || toggles[w] == '0' || toggles[w] == '1';
+                o->workspace_tiling[w] = toggles[w] == '-' ? -1 : toggles[w] == '1';
+            }
             session->output_count += ok;
         } else if (!strcmp(f[0], "layout") && (count == 6 || count == 7) &&
                    session->layout_count < SH_SESSION_MAX_LAYOUTS) {
@@ -299,6 +366,15 @@ bool sh_session_read(struct sh_session *session, FILE *file, char *error, size_t
                      parse_int(f[12], &w->scroll_row) && w->scroll_column >= 1 &&
                      w->scroll_row >= 1;
             session->window_count += ok;
+        } else if (!strcmp(f[0], "tree") && count == 4 &&
+                   session->tree_count < SH_SESSION_MAX_WINDOWS) {
+            struct sh_session_tree *t = &session->trees[session->tree_count];
+            decode_into(f[1], t->output, sizeof(t->output));
+            t->first = session->node_count;
+            t->count = 0;
+            ok = parse_int(f[2], &t->workspace) && t->output[0] && t->workspace >= 0 &&
+                 read_tree(session, f[3], t);
+            session->tree_count += ok;
         }
         if (!ok) {
             snprintf(error, error_size, "line %d is not a valid session record", number);

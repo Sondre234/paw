@@ -302,6 +302,10 @@ PreviewData::PreviewData(ShellController &controller)
 
     controller.power()->setAvailable("lock,suspend,hibernate,reboot,poweroff,logout");
     controller.setNightLight(true, "auto");
+    // The tiling button's saved arrangements.
+    controller.setSessions({QVariantMap{{"name", "coding"}, {"windows", 4}, {"saved", 0}},
+                            QVariantMap{{"name", "last"}, {"windows", 7}, {"saved", 0}},
+                            QVariantMap{{"name", "music"}, {"windows", 1}, {"saved", 0}}});
 
     // A music player well into a track, its cover a picture in the preview's own directory, and
     // a browser paused behind it.

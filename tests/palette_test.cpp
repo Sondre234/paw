@@ -145,6 +145,12 @@ class PaletteTest : public QObject {
         QVERIFY(!fuzzy::validSessionName(".."));
         QVERIFY(!fuzzy::validSessionName("a/b"));
         QVERIFY(!fuzzy::validSessionName(QString(65, 'a')));
+        // What the compositor refuses: a hidden file, the name a session is written under before
+        // it replaces another, and 64 characters.
+        QVERIFY(!fuzzy::validSessionName(".hidden"));
+        QVERIFY(!fuzzy::validSessionName("work.new"));
+        QVERIFY(!fuzzy::validSessionName(QString(64, 'a')));
+        QVERIFY(fuzzy::validSessionName(QString(63, 'a')));
     }
 };
 QTEST_APPLESS_MAIN(PaletteTest)

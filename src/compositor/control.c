@@ -55,8 +55,9 @@ static int session_name_filter(const struct dirent *entry) {
 }
 
 static void control_session(struct sh_server *server, int fd, const char *arguments) {
-    char verb[16] = "", name[SH_SESSION_NAME_MAX + 8] = "", option[16] = "", extra[8] = "";
-    int count = sscanf(arguments, " %15s %71s %15s %7s", verb, name, option, extra);
+    char verb[16] = "", name[SH_SESSION_NAME_MAX + 8] = "", option[SH_SESSION_NAME_MAX + 8] = "",
+         extra[8] = "";
+    int count = sscanf(arguments, " %15s %71s %71s %7s", verb, name, option, extra);
     char error[300] = "", reply[512];
     if (!strcmp(verb, "list") && count == 1) {
         char directory[PATH_MAX];
@@ -117,7 +118,29 @@ static void control_session(struct sh_server *server, int fd, const char *argume
         control_reply(fd, reply);
         return;
     }
-    control_reply(fd, "error: usage: session save NAME | restore NAME [launch] | list | delete NAME\n");
+    if (!strcmp(verb, "rename") && count == 3) {
+        char path[PATH_MAX], renamed[PATH_MAX];
+        // Linked first, so that a session of the new name is never replaced.
+        bool named = sh_session_path(name, path, sizeof(path)) &&
+                     sh_session_path(option, renamed, sizeof(renamed));
+        int failed = !named ? 0 : link(path, renamed) == 0 ? 0 : errno;
+        if (!named)
+            snprintf(reply, sizeof(reply), "error: a session name is letters, digits, '.', '_' and '-'\n");
+        else if (failed == EEXIST)
+            snprintf(reply, sizeof(reply), "error: a session named %s exists\n", option);
+        else if (failed == ENOENT)
+            snprintf(reply, sizeof(reply), "error: no session named %s\n", name);
+        else if (failed)
+            snprintf(reply, sizeof(reply), "error: cannot rename %s: %s\n", name, strerror(failed));
+        else if (unlink(path) != 0)
+            snprintf(reply, sizeof(reply), "error: cannot remove %s: %s\n", name, strerror(errno));
+        else
+            snprintf(reply, sizeof(reply), "ok\n");
+        control_reply(fd, reply);
+        return;
+    }
+    control_reply(fd, "error: usage: session save NAME | restore NAME [launch] | list | "
+                      "rename NAME NEW | delete NAME\n");
 }
 
 /* An output, enabled or not, by connector name. */

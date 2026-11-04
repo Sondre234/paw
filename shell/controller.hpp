@@ -236,6 +236,9 @@ class ShellController : public QObject {
     Q_PROPERTY(QString cardsOutput READ cardsOutput NOTIFY cardsOutputChanged)
     Q_PROPERTY(bool tiling READ tiling NOTIFY tilingChanged)
     Q_PROPERTY(bool tilingAvailable READ tilingAvailable NOTIFY tilingChanged)
+    // The saved sessions, by name, as readSessions() last found them: maps of `name`, `windows`
+    // (how many it holds) and `saved` (when, in seconds since the epoch).
+    Q_PROPERTY(QVariantList sessions READ sessions NOTIFY sessionsChanged)
     Q_PROPERTY(int workspaceCount READ workspaceCount NOTIFY configChanged)
     // shell.workspaces_shown: how many the indicator shows around the current one; 0: all.
     Q_PROPERTY(int workspacesShown READ workspacesShown NOTIFY configChanged)
@@ -596,6 +599,10 @@ class ShellController : public QObject {
     // says, which a preview without a compositor shows.
     bool tiling() const { return tilingKnown_ ? tiling_ : config_.settings.tiling; }
     bool tilingAvailable() const { return subscribed_; }
+    QVariantList sessions() const { return sessions_; }
+    void setSessions(const QVariantList &sessions);
+    // The sessions a reply to "session list" names, as `sessions` holds them.
+    static QVariantList sessionList(const QByteArray &reply);
     int workspaceCount() const { return config_.settings.workspaces; }
     int workspacesShown() const { return config_.shell.workspaces_shown; }
     QStringList workspaceNames() const {
@@ -685,10 +692,22 @@ class ShellController : public QObject {
     // there too when `turnOn`, once the layout is set, so that its windows tile with it at once.
     Q_INVOKABLE void tileWith(const QString &output, const QString &layout, bool turnOn);
     Q_INVOKABLE void showWorkspace(const QString &output, int number);
+    // Asks the compositor which sessions are saved, for `sessions`; nothing without a compositor.
+    Q_INVOKABLE void readSessions();
+    // Restores a saved session, launching the applications of the windows it does not find.
+    Q_INVOKABLE void restoreSession(const QString &name);
+    // Saves the windows as they are as `name`, over a session of that name.
+    Q_INVOKABLE void saveSession(const QString &name);
+    // Renames a saved session; refused when one is named `newName` already.
+    Q_INVOKABLE void renameSession(const QString &name, const QString &newName);
+    Q_INVOKABLE void deleteSession(const QString &name);
+    // Whether the compositor takes `name` for a session's.
+    Q_INVOKABLE bool sessionNameValid(const QString &name) const;
     // A step past `output`'s last workspace (`way` 1) or its first (-1), which the compositor
     // answers by nudging that output's windows that way and back; nothing without a compositor.
     Q_INVOKABLE void nudgeWorkspace(const QString &output, int way);
   Q_SIGNALS:
+    void sessionsChanged();
     void configChanged();
     void restylingChanged();
     void barDragChanged();
@@ -860,6 +879,9 @@ class ShellController : public QObject {
     QStringList userPins_;
     QString error_;
     QString configError_;
+    QVariantList sessions_;
+    // Sends a session request, telling of a refusal, then reads the sessions again.
+    void changeSessions(const QString &line);
     bool barDragging_ = false;
     QString barDragOutput_, barDragEdge_;
     // A resize of the bar (startBarResize): the edge it is along and the side of the bar dragged,

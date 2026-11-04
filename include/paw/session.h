@@ -10,15 +10,18 @@ extern "C" {
 #endif
 
 /* A saved arrangement of windows (`paw msg session save NAME`): which workspace, layout and
- * tiling state each output was in, and for every window its output, workspace, place and
- * state, with the matchers (app ID and title) and the command that restore it later. Kept as
- * plain text under $XDG_STATE_HOME/paw/sessions/NAME, one record per line. */
+ * tiling state each output was in, the tiling tree of each workspace that tiles, and for every
+ * window its output, workspace, place and state, with the matchers (app ID and title) and the
+ * command that restore it later. Kept as plain text under $XDG_STATE_HOME/paw/sessions/NAME, one
+ * record per line. */
 enum {
     SH_SESSION_MAX_WINDOWS = 128,
     SH_SESSION_MAX_OUTPUTS = 16,
     SH_SESSION_MAX_LAYOUTS = 160,
     SH_SESSION_MAX_COLUMNS = 16, /* columns of a scrolling strip that are saved */
+    SH_SESSION_MAX_NODES = 2 * SH_SESSION_MAX_WINDOWS, /* of all the tiling trees together */
     SH_SESSION_NAME_MAX = 64,
+    SH_SESSION_WORKSPACES = 10, /* workspaces whose own tiling toggle is saved */
 };
 
 enum sh_session_flag {
@@ -37,6 +40,9 @@ struct sh_session_output {
     char name[64];
     int workspace; /* the workspace it showed, from 0 */
     int tiling;    /* -1 unknown, 0 floating, 1 tiling */
+    /* Each workspace's own toggle (layout.tiling_per_workspace): -1 as the output, 0 floating,
+     * 1 tiling. */
+    signed char workspace_tiling[SH_SESSION_WORKSPACES];
 };
 
 struct sh_session_layout {
@@ -66,6 +72,23 @@ struct sh_session_window {
     int scroll_column, scroll_row;
 };
 
+/* A node of a workspace's tiling tree (sh_tiling_tree), in pre-order: a leaf names its window by
+ * its index in sh_session.windows; a split has -1, its share of its first half and the direction
+ * split_toggle kept (-1 none, 0 stacked, 1 side by side). */
+struct sh_session_node {
+    int window;
+    double ratio;
+    int forced;
+};
+
+/* The tiling tree of one workspace: `count` nodes from `first` in sh_session.nodes, which say
+ * which slot of the tiling each window had and the order the other layouts show them in. */
+struct sh_session_tree {
+    char output[64];
+    int workspace; /* from 0 */
+    int first, count;
+};
+
 struct sh_session {
     struct sh_session_output outputs[SH_SESSION_MAX_OUTPUTS];
     int output_count;
@@ -73,6 +96,10 @@ struct sh_session {
     int layout_count;
     struct sh_session_window windows[SH_SESSION_MAX_WINDOWS];
     int window_count;
+    struct sh_session_tree trees[SH_SESSION_MAX_WINDOWS];
+    int tree_count;
+    struct sh_session_node nodes[SH_SESSION_MAX_NODES];
+    int node_count;
 };
 
 /* Session names are 1 to 63 characters of letters, digits, '.', '_' and '-', not starting with

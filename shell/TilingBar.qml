@@ -740,14 +740,23 @@ Item {
     Component {
         id: tilingModule
         Module {
+            id: tiling
             host: tilingBar
             objectName: "tilingBarToggle"
             enabled: shell.tilingAvailable
             glyph: "layout-panel-left"
             tint: tilingBar.panel.tiling ? tilingBar.accent : tilingBar.muted
-            tip: tilingBar.panel.tiling ? "Tiling on: click for floating windows"
-                                        : "Tiling off: click to tile the windows"
+            active: tilingBar.panel.audioPopup === "tiling"
+            tip: (tilingBar.panel.tiling ? "Tiling on: click for floating windows"
+                                         : "Tiling off: click to tile the windows") +
+                 "\nRight-click: layouts and arrangements"
             onClicked: { tilingBar.panel.closeMenus(); shell.toggleTiling(tilingBar.panel.outputName) }
+            // The tiling button's menu (TilingMenu.qml).
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.RightButton
+                onPressed: tilingBar.panel.toggleAudioPopup("tiling", tiling)
+            }
         }
     }
 

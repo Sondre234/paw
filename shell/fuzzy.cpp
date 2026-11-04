@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "fuzzy.hpp"
+#include "paw/session.h"
 #include <QMap>
 #include <QRegularExpression>
 #include <algorithm>
@@ -218,7 +219,6 @@ QVariantList fuzzy::rank(const QVariantList &entries, const QString &rawQuery, i
 }
 
 bool fuzzy::validSessionName(const QString &name) {
-    static const QRegularExpression valid("^[A-Za-z0-9._-]{1,64}$");
-    return valid.match(name).hasMatch() && name != "." && name != "..";
+    return sh_session_valid_name(name.toUtf8().constData());
 }
 

@@ -613,11 +613,18 @@ struct sh_server {
 
     /* Windows a session restore launched and has yet to place: the first new window with the
      * app ID takes the saved place, workspace and state, until the deadline (milliseconds on
-     * the monotonic clock). A slot whose deadline has passed is free. */
+     * the monotonic clock). A slot whose deadline has passed is free. `index` is the window's in
+     * the session of the restore numbered `serial`, which puts it into its tile as it opens. */
     struct {
         struct sh_session_window window;
         int64_t deadline;
+        unsigned serial;
+        int index;
     } session_pending[32];
+    /* The last restore, while windows it waits for may still open (session.c); NULL once none
+     * may. */
+    struct sh_restoring *restoring;
+    unsigned session_restore_serial; // counts restores, which number the windows they place
     /* A login session (standalone, or a test's with PAW_LOGIN_SESSION): it saves itself as
      * it ends and restores that as it starts (session.restore). */
     bool login_session;
@@ -1171,6 +1178,10 @@ struct sh_toplevel {
      * own peer is the terminal. */
     bool swallowed;
     struct sh_toplevel *swallow_peer;
+    /* The restore (sh_server.session_restore_serial) that placed the window or waited for it,
+     * and its index among that session's windows; 0 for none. */
+    unsigned session_restore;
+    int session_index;
     struct wlr_scene_buffer *tabs; // the strip of tabs over the shown member's top edge
     int tabs_width, tabs_count, tabs_active, tabs_hover, tabs_scale; // what `tabs` shows
     struct wl_list link;
@@ -1844,6 +1855,7 @@ void session_save_last(struct sh_server *server);
 void session_restore_last(struct sh_server *server);
 bool session_claim(struct sh_server *server, struct sh_toplevel *toplevel,
                    struct sh_window_rule *rule, bool ruled);
+void session_finish(struct sh_server *server);
 
 /* shortcuts_inhibit.c */
 bool shortcuts_inhibited(struct sh_server *server);
@@ -1933,6 +1945,11 @@ void set_floating(struct sh_toplevel *toplevel, bool floating, bool at_cursor);
 void rehome_tiles(struct sh_server *server);
 void set_tiling(struct sh_server *server, struct wlr_output *output, bool enabled);
 void set_output_tiling(struct sh_server *server, struct wlr_output *output, bool enabled);
+/* Puts back the tiling a saved session had on `output`: on or off as a whole (`tiles`; -1 leaves
+ * it), and each workspace's own toggle of layout.tiling_per_workspace (`own`, `count` of them; -1
+ * follows the output). */
+void restore_output_tiling(struct sh_server *server, struct wlr_output *output, int tiles,
+                           const signed char *own, int count);
 void move_tile(struct sh_toplevel *toplevel, struct sh_toplevel *neighbour,
                struct wlr_output *output, bool horizontal, int sign);
 void configure_layouts(struct sh_server *server);

@@ -151,6 +151,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     ProfilesButton.qml
     TilingButton.qml
     TilingMenu.qml
+    ArrangementPrompt.qml
     Dock.qml
     DockIcon.qml
     TopMenuBar.qml
@@ -302,14 +303,14 @@ if(BUILD_TESTING)
     add_test(NAME shell_task_filter COMMAND task_filter_test)
     set_tests_properties(shell_task_filter PROPERTIES TIMEOUT 90
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
-    paw_shell_test(palette_test SOURCES fuzzy.cpp fuzzy.hpp LIBS Qt6::Core Qt6::Test)
+    paw_shell_test(palette_test SOURCES fuzzy.cpp fuzzy.hpp LIBS paw_config Qt6::Core Qt6::Test)
     add_test(NAME palette COMMAND palette_test)
     # The calculator of the palette's and the start menu's search.
     paw_shell_test(calculator_test SOURCES calculator.cpp calculator.hpp LIBS Qt6::Core Qt6::Test)
     add_test(NAME calculator COMMAND calculator_test)
     # The files the search finds, in a home folder of the test's own.
     paw_shell_test(file_index_test SOURCES file_index.cpp file_index.hpp fuzzy.cpp fuzzy.hpp
-        LIBS Qt6::Core Qt6::Test PkgConfig::GIO)
+        LIBS paw_config Qt6::Core Qt6::Test PkgConfig::GIO)
     add_test(NAME file_index COMMAND file_index_test)
     set_tests_properties(file_index PROPERTIES TIMEOUT 60)
     # The search's last result, Search the web for “…”.
@@ -317,7 +318,7 @@ if(BUILD_TESTING)
     add_test(NAME web_search COMMAND web_search_test)
     # The run launcher's search.
     paw_shell_test(run_search_test SOURCES ${PAW_RUN_SOURCES} fuzzy.cpp fuzzy.hpp calculator.cpp
-        calculator.hpp launch_history.cpp launch_history.hpp state_files.hpp LIBS Qt6::Core Qt6::Test)
+        calculator.hpp launch_history.cpp launch_history.hpp state_files.hpp LIBS paw_config Qt6::Core Qt6::Test)
     add_test(NAME run_search COMMAND run_search_test)
     # The emoji picker's table and model.
     paw_shell_test(emoji_test SOURCES emoji.cpp emoji.hpp
@@ -374,7 +375,7 @@ if(BUILD_TESTING)
     add_test(NAME shell_display_settings COMMAND display_settings_test)
     # The start menu's model: its pins, the launch history and its search.
     paw_shell_test(start_menu_test SOURCES ${PAW_START_SOURCES} fuzzy.cpp fuzzy.hpp
-        LIBS Qt6::Core Qt6::Test PkgConfig::GIO)
+        LIBS paw_config Qt6::Core Qt6::Test PkgConfig::GIO)
     add_test(NAME start_menu COMMAND start_menu_test)
     # The authentication dialog's model, with stand-ins for polkit's helper.
     paw_shell_test(authentication_test SOURCES authentication.cpp authentication.hpp

@@ -814,6 +814,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(profile_schedule_smoke $<TARGET_FILE:paw>)
         paw_smoke(session_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(session_tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_restore_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(focus_last_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(switcher_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>

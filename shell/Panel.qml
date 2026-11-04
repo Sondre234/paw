@@ -65,6 +65,16 @@ Item {
     // The middle of the item it opens by along the bar (alongBar), and the item's length there.
     property real audioPopupX: 0
     property real audioPopupWidth: 0
+    // The saved session the "arrangement" popup renames, or "" while it saves a new one.
+    property string arrangementRenaming: ""
+    // Opens the prompt for a saved arrangement's name where the tiling button's menu was, to save
+    // the windows as they are (`renaming` "") or rename `renaming`. True, so that the menu entry
+    // that calls it leaves the popup as it is rather than closing it.
+    function promptArrangement(renaming) {
+        arrangementRenaming = renaming
+        audioPopup = "arrangement"
+        return true
+    }
     // A tray item's menu: the item it belongs to ("" while closed), and where its icon is.
     property string trayMenuKey: ""
     property real trayMenuX: 0
@@ -1039,10 +1049,18 @@ Item {
             toggleAudioPopup("wallpapers", wallpapersButton)
             return wallpapersButton.visible
         case "tiling-menu":
-            // The tiling button's menu; the tiling bar has none.
+        case "tiling-submenu":
+        case "arrangement":
+            // The tiling button's menu, its saved arrangements, and the name for a new one.
             var tilingButton = statusArea.tiling || null
             if (tilingButton)
                 toggleAudioPopup("tiling", tilingButton)
+            if (tilingButton && name === "tiling-submenu") {
+                previewSubmenu.menu = tilingMenuLoader
+                previewSubmenu.start()
+            }
+            if (tilingButton && name === "arrangement")
+                promptArrangement("")
             return tilingButton !== null && tilingButton.visible
         case "quick-settings":
         case "quick-settings-mixer":
@@ -1553,8 +1571,15 @@ Item {
 
             // The tiling button's menu: the layout in use, and the others to pick.
             PopupLoader {
+                id: tilingMenuLoader
                 wanted: root.audioPopup === "tiling"
                 sourceComponent: Component { TilingMenu { panel: root } }
+            }
+
+            // Its name for an arrangement saved or renamed from the tiling button's menu.
+            PopupLoader {
+                wanted: root.audioPopup === "arrangement"
+                sourceComponent: Component { ArrangementPrompt { panel: root } }
             }
 
             // The tiling bar's power module: the power menu by it.
