@@ -200,8 +200,8 @@ bool session_save(struct sh_server *server, const char *name, int *windows, char
     if (ok && rename(temporary, path) != 0)
         ok = false;
     if (!ok) {
-        unlink(temporary);
         snprintf(error, error_size, "cannot write %s: %s", path, strerror(errno));
+        unlink(temporary);
     }
     *windows = session->window_count;
     free(session);
