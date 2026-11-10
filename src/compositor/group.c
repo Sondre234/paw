@@ -105,7 +105,9 @@ void hand_over_slot(struct sh_toplevel *from, struct sh_toplevel *to) {
         if (to->foreign)
             wlr_foreign_toplevel_handle_v1_set_maximized(to->foreign, false);
     } else {
-        struct wlr_box box = toplevel_box(from);
+        // A fullscreen window's slot is the place it goes back to, not the monitor it covers:
+        // closing, it is unmapped by now and cannot leave fullscreen first.
+        struct wlr_box box = from->fullscreen ? from->fullscreen_restore : toplevel_box(from);
         to->arranged = from->arranged;
         to->arrangement = from->arrangement;
         toplevel_set_states(to, from->arrangement == SH_MAXIMIZE, 0);
