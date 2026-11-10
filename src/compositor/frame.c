@@ -270,6 +270,13 @@ struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_s
     struct wlr_buffer *buffer = keep_buffer(sh_pixel_buffer(pixels, pixel_width, pixel_height));
     if (!buffer)
         return NULL; // it freed the pixels
+    // A window still showing the picture let go keeps its texture, but not the buffer's name:
+    // the next picture made may get that address, and would pass for the one it shows.
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (oldest->buffer && toplevel->shadow_image == oldest->buffer)
+            toplevel->shadow_image = NULL;
+    }
     drop_kept_buffer(oldest->buffer);
     *oldest = (struct sh_shadow_image){*look, width, height, scale, buffer, ++server->shadow_uses};
     return oldest;
