@@ -454,6 +454,17 @@ static bool parse_apply(struct sh_server *server, char *words, struct sh_output_
     return true;
 }
 
+/* The settings kept for monitors that are not connected stay kept, for when they are back: after
+ * those of the connected ones in `next`. */
+static void carry_absent(struct sh_server *server, struct sh_output_state *next) {
+    const struct sh_output_state *saved = &server->display_settings.saved;
+    for (int i = 0; i < saved->count && next->count < SH_OUTPUT_STATE_MAX; ++i) {
+        const struct sh_output_saved *kept = &saved->outputs[i];
+        if (!sh_output_state_find(next, kept->monitor.name, kept->description))
+            next->outputs[next->count++] = *kept;
+    }
+}
+
 /* Whether `next` can be put on trial: some monitor shows the desktop (on, and mirroring none), a
  * mirror's source is connected and mirrors none itself, and a mode is one the monitor offers. */
 static bool check_apply(struct sh_server *server, const struct sh_output_state *next, char *error,
@@ -545,10 +556,12 @@ void control_monitors(struct sh_server *server, int fd, const char *arguments) {
     bool done = false;
     if (!strcmp(verb, "apply") || (!strcmp(verb, "reset") && !*rest)) {
         struct sh_output_state *next = calloc(1, sizeof(*next));
-        done = next &&
-               (!strcmp(verb, "reset") || (parse_apply(server, rest, next, error, sizeof(error)) &&
-                                           check_apply(server, next, error, sizeof(error)))) &&
-               start_trial(server, next, error, sizeof(error));
+        bool apply = !strcmp(verb, "apply");
+        done = next && (!apply || (parse_apply(server, rest, next, error, sizeof(error)) &&
+                                   check_apply(server, next, error, sizeof(error))));
+        if (done && apply)
+            carry_absent(server, next);
+        done = done && start_trial(server, next, error, sizeof(error));
         if (!next)
             snprintf(error, sizeof(error), "out of memory");
         free(next);
