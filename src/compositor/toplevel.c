@@ -611,7 +611,8 @@ static void xdg_toplevel_request_maximize(struct wl_listener *listener, void *da
     struct sh_toplevel *toplevel = wl_container_of(listener, toplevel, request_maximize);
     if (!toplevel->xdg_toplevel->base->initialized)
         return;
-    if (!toplevel->fullscreen)
+    // Before it maps it has no place to keep for its restore; map_toplevel reads the request.
+    if (toplevel_mapped(toplevel) && !toplevel->fullscreen)
         maximize_toplevel(toplevel, toplevel->xdg_toplevel->requested.maximized);
     wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
 }
