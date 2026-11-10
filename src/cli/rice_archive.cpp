@@ -109,7 +109,7 @@ std::optional<std::string> pax_value(const std::string &records, const std::stri
         if (space == std::string::npos)
             break;
         size_t length = std::strtoul(records.c_str() + at, nullptr, 10);
-        if (length == 0 || at + length > records.size())
+        if (length == 0 || length > records.size() - at)
             break;
         auto record = records.substr(space + 1, at + length - space - 2);
         if (record.starts_with(key + "="))
