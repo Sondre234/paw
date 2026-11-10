@@ -546,6 +546,7 @@ Item {
                  (center.serving && center.dnd ? "\nDo not disturb" : "")
             onClicked: tilingBar.panel.toggleAudioPopup("clock", clock)
             Timer {
+                id: tick
                 function untilNext() {
                     var d = new Date()
                     return clock.seconds ? 1010 - d.getMilliseconds() : 60050 - d.getSeconds() * 1000 - d.getMilliseconds()
@@ -553,7 +554,8 @@ Item {
                 interval: untilNext(); running: true; repeat: true
                 onTriggered: { clock.now = new Date(); interval = untilNext() }
             }
-            onFormatChanged: now = new Date()
+            // A format with seconds, or without them now, changes when the next tick is due.
+            onFormatChanged: { now = new Date(); tick.interval = tick.untilNext(); tick.restart() }
             MouseArea {
                 anchors.fill: parent
                 enabled: clock.center.serving
