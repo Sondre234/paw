@@ -75,14 +75,7 @@ static struct sh_toplevel *tearing_window(struct sh_output *output, const char *
         *why = "overlay";
         return NULL;
     }
-    struct sh_toplevel *toplevel, *found = NULL;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (!toplevel->unmanaged && toplevel->fullscreen && toplevel_mapped(toplevel) &&
-            toplevel_visible(toplevel) && output_named(output, toplevel->output)) {
-            found = toplevel;
-            break;
-        }
-    }
+    struct sh_toplevel *found = fullscreen_on(server, output->wlr_output);
     if (!found) {
         *why = "no fullscreen window";
         return NULL;

@@ -201,16 +201,6 @@ int night_light_tick(void *data) {
 }
 
 /* Hot corners: runs what a corner is bound to once the pointer has rested in it. */
-static bool output_has_fullscreen(struct sh_server *server, struct wlr_output *output) {
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (toplevel->fullscreen && toplevel_mapped(toplevel) && toplevel_visible(toplevel) &&
-            toplevel_output(toplevel) == output)
-            return true;
-    }
-    return false;
-}
-
 void hot_corner_check(struct sh_server *server) {
     const struct sh_settings *settings = server_settings(server);
     const struct sh_effect_settings *fx = &settings->effects;
@@ -230,7 +220,7 @@ void hot_corner_check(struct sh_server *server) {
             corner = sh_corner_at(server->cursor->x - box.x, server->cursor->y - box.y, box.width,
                                   box.height, fx->corner_size);
             // Looking for a fullscreen window walks them all: only in a corner that acts.
-            if (corner >= 0 && (!(mask & (1U << corner)) || output_has_fullscreen(server, output)))
+            if (corner >= 0 && (!(mask & (1U << corner)) || fullscreen_on(server, output)))
                 corner = -1;
         }
     }

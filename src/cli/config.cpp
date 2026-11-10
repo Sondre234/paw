@@ -18,7 +18,8 @@
 namespace paw::cli {
 
 std::filesystem::path personal_configuration_path() {
-    if (const auto *xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
+    // A relative one is no XDG directory, as the base directory specification has it.
+    if (const auto *xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg == '/')
         return std::filesystem::path(xdg) / "paw/init.lua";
     if (const auto *home = std::getenv("HOME"); home && *home)
         return std::filesystem::path(home) / ".config/paw/init.lua";

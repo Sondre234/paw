@@ -487,6 +487,11 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
     toplevel->urgent = false;
     refresh_frame(toplevel);
     untile_toplevel(toplevel, false);
+    // An X11 window, or one that only took its buffer away, maps again as this same window:
+    // as a new one, not minimized and held to no place.
+    toplevel->minimized = false;
+    toplevel->arranged = toplevel->placed = toplevel->from_tile = toplevel->pseudo = false;
+    toplevel->arrangement = SH_NONE;
     // Not tiled, a window moved with the pointer may still hold a place in a tiling
     // (tile_drop.c), which must not outlive it.
     if (sh_tiling_output(toplevel->server->tiling, toplevel)) {
@@ -606,9 +611,22 @@ static void xdg_toplevel_request_maximize(struct wl_listener *listener, void *da
     struct sh_toplevel *toplevel = wl_container_of(listener, toplevel, request_maximize);
     if (!toplevel->xdg_toplevel->base->initialized)
         return;
-    if (!toplevel->fullscreen)
+    // Before it maps it has no place to keep for its restore; map_toplevel reads the request.
+    if (toplevel_mapped(toplevel) && !toplevel->fullscreen)
         maximize_toplevel(toplevel, toplevel->xdg_toplevel->requested.maximized);
     wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
+}
+
+/* The fullscreen window `output` shows (mapped, on the workspace shown, not minimized); NULL for
+ * none, and for no output. */
+struct sh_toplevel *fullscreen_on(struct sh_server *server, struct wlr_output *output) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (output && toplevel->fullscreen && toplevel_mapped(toplevel) &&
+            toplevel_visible(toplevel) && !strcmp(toplevel->output, output->name))
+            return toplevel;
+    }
+    return NULL;
 }
 
 void fit_fullscreen(struct sh_toplevel *toplevel) {

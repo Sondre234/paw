@@ -74,8 +74,12 @@ static void write_state(struct sh_server *server, bool sunrise) {
 static int64_t local_time(const struct tm *today, int days_back, double minute) {
     struct tm at = *today;
     at.tm_mday -= days_back;
-    at.tm_hour = at.tm_min = 0;
-    at.tm_sec = (int)lround(minute * 60);
+    // On the clock, as sh_last_boundary counts: seconds past midnight would be time gone by,
+    // an hour off on the day the clocks change.
+    int second = (int)lround(minute * 60);
+    at.tm_hour = second / 3600;
+    at.tm_min = second / 60 % 60;
+    at.tm_sec = second % 60;
     at.tm_isdst = -1;
     return (int64_t)mktime(&at);
 }

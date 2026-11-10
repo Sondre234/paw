@@ -62,19 +62,6 @@ static enum wl_output_transform quarter_transform(int quarters) {
     return transforms[quarters & 3];
 }
 
-static bool shows_fullscreen(struct sh_server *server, struct wlr_output *wlr_output) {
-    struct sh_output *output = wlr_output ? sh_output_for(server, wlr_output) : NULL;
-    if (!output)
-        return false;
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (!toplevel->unmanaged && toplevel->fullscreen && toplevel_mapped(toplevel) &&
-            toplevel_visible(toplevel) && output_named(output, toplevel->output))
-            return true;
-    }
-    return false;
-}
-
 /* Why nothing comes off the pointer now, whatever the kind: NULL if it may. */
 static const char *paused_why(struct sh_cursor_trail *trail) {
     struct sh_server *server = trail->server;
@@ -91,7 +78,7 @@ static const char *paused_why(struct sh_cursor_trail *trail) {
     // The loupe magnifies what the output shows around the pointer, and picks a pixel of it.
     if (color_picker_active(server))
         return "picking";
-    if (shows_fullscreen(server, pointer_output(server)))
+    if (fullscreen_on(server, pointer_output(server)))
         return "fullscreen";
     return NULL;
 }

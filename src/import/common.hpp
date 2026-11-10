@@ -109,6 +109,7 @@ struct Css {
     };
     std::map<std::string, HyprValue> colors; // @define-color name -> value
     std::vector<Declaration> declarations;   // in cascade order
+    int imports = 0;                         // files read for @import, in all
 };
 void parse_css(const Files &files, const fs::path &path, Css &css, Report &report, int depth = 0);
 std::optional<Color> css_color(std::string_view value, const Css &css, int depth = 0);

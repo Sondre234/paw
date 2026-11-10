@@ -3,7 +3,6 @@
 #include <QList>
 #include <QStringList>
 #include <cmath>
-#include <cstdio>
 #include <numbers>
 
 namespace {
@@ -673,9 +672,8 @@ QString calculator::format(double value) {
         return "0"; // -0 too
     if (value == std::floor(value) && std::fabs(value) < 9007199254740992.0)
         return QString::number(static_cast<qint64>(value));
-    char buffer[64];
-    std::snprintf(buffer, sizeof buffer, "%.12g", value);
-    QString text = QString::fromLatin1(buffer);
+    // With a point whatever the locale, as the parser reads it back.
+    QString text = QString::number(value, 'g', 12);
     // 1e+20 and 1e-05 as 1e20 and 1e-5.
     const auto exponent = text.indexOf('e');
     if (exponent >= 0) {

@@ -97,8 +97,11 @@ void VolumeKeys::changeBrightness(int step) {
         return;
     // A backlight at 0 is off on some screens: the keys stop at 1 % on the way down, unless it
     // is lower already.
+    // A panel with a handful of levels moves by one of them at least: a smaller step would
+    // round back to the level it is at, every time.
     const int current = backlight_.percent();
-    const int next = std::clamp(current + step, std::min(current, 1), 100);
+    const int by = std::max(std::abs(step), backlight_.levelPercent()) * (step < 0 ? -1 : 1);
+    const int next = std::clamp(current + by, std::min(current, 1), 100);
     backlight_.setPercent(next);
     if (osd_.config().brightness)
         osd_.show(where_(), "Brightness", next, "brightness");

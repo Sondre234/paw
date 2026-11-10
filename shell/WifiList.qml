@@ -58,13 +58,15 @@ Column {
             required property int strength
             required property string security
             required property bool secured
+            // WPA keys are 8 to 63 characters; WPA3's (SAE) may be shorter.
+            readonly property int shortestKey: security === "sae" ? 1 : 8
             required property bool active
             required property bool connecting
             width: list.width
             readonly property bool open: list.selected === ssid
             readonly property bool asksPassword: open && list.wifi.needsPassword(ssid)
             function connectNow() {
-                if (asksPassword && password.text.length < 8)
+                if (asksPassword && password.text.length < shortestKey)
                     return
                 const network = ssid, key = asksPassword ? password.text : "", wifi = list.wifi
                 list.rejected = ""
@@ -183,8 +185,7 @@ Column {
                         objectName: "wifiConnect"
                         visible: !entry.active && list.wifi.canConnect(entry.ssid)
                         small: true; primary: true
-                        // WPA keys are 8 to 63 characters.
-                        enabled: !entry.asksPassword || password.text.length >= 8
+                        enabled: !entry.asksPassword || password.text.length >= entry.shortestKey
                         text: entry.connecting ? "Connecting…" : "Connect"
                         onClicked: entry.connectNow()
                     }

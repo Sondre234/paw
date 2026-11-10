@@ -133,6 +133,8 @@ Item {
             spacing: Theme.spacingXS
             model: root.found
             currentIndex: root.current
+            // A new list has the view start again at its first entry, whatever its binding says.
+            onModelChanged: currentIndex = Qt.binding(function() { return root.current })
             // The entry chosen is shaded as the palette's is, and moves at once.
             highlightMoveDuration: 0
             highlightResizeDuration: 0

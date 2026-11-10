@@ -127,7 +127,8 @@ Gradient gradient_colors(std::string_view text) {
             result.colors.push_back(*color);
         else if (token.ends_with("deg"))
             if (auto angle = parse_number(std::string_view(token).substr(0, token.size() - 3)))
-                result.angle = std::fmod(*angle, 360);
+                if (std::isfinite(*angle)) // "infdeg" reads as a number
+                    result.angle = std::fmod(*angle, 360);
     }
     return result;
 }

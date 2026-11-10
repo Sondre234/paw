@@ -3,6 +3,7 @@
 #include "dbus_util.hpp"
 #include <QDBusArgument>
 #include <QDBusConnectionInterface>
+#include <QFileInfo>
 #include <QUrl>
 #include <iostream>
 
@@ -89,6 +90,14 @@ Notification NotificationsAdaptor::parse(const QString &app, const QString &icon
     QString name = !path.isEmpty() ? path : icon;
     if (name.startsWith("file://"))
         name = QUrl(name).toLocalFile();
+    // A path that names something other than a regular file of a sane size is not read, as a
+    // tray item's is not: opening a pipe would never return, and the cards load their icons
+    // as they are drawn.
+    if (name.startsWith('/')) {
+        const QFileInfo info(name);
+        if (info.exists() && (!info.isFile() || info.size() >= 8 * 1024 * 1024))
+            name.clear();
+    }
     n.icon = name.left(1024);
     return n;
 }

@@ -6940,7 +6940,7 @@ ListModel {
         QQmlEngine::setObjectOwnership(&wifi, QQmlEngine::CppOwnership);
         Wifi::State state;
         state.available = state.hasWifi = state.enabled = true;
-        state.accessPoints = {{"Home", 80, "wpa-psk"}, {"Office", 60, "sae"}, {"Cafe", 40, "open"},
+        state.accessPoints = {{"Home", 80, "sae"}, {"Office", 60, "wpa-psk"}, {"Cafe", 40, "open"},
                               {"Corp", 70, "enterprise"}};
         state.known = {"Home"};
         state.ssid = "Home";
@@ -6994,7 +6994,7 @@ ListModel {
             QTest::keyClick(popover, c);
         QTest::keyClick(popover, Qt::Key_Return);
         // The card has the keyboard back, for Escape.
-        if (wifi.requests != QStringList{"connect Office sae short-enough"} ||
+        if (wifi.requests != QStringList{"connect Office wpa-psk short-enough"} ||
             !waitFor([&] { return !password->isVisible() && popup->hasActiveFocus(); }))
             return fail("the password did not connect to the network and give the keyboard back");
         // Refused, it is asked for again.

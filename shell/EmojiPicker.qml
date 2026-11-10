@@ -173,6 +173,8 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             model: root.shownEmoji
             currentIndex: root.current
+            // A new list has the view start again at its first entry, whatever its binding says.
+            onModelChanged: currentIndex = Qt.binding(function() { return root.current })
             highlightMoveDuration: 0
             highlight: Rectangle { radius: Theme.radiusSmall; color: Theme.selected }
             onCurrentIndexChanged: positionViewAtIndex(currentIndex, GridView.Contain)

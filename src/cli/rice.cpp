@@ -341,9 +341,24 @@ std::map<std::string, std::string> archive_files(std::string archive, std::files
             if (fd < 0)
                 throw std::runtime_error("cannot make a temporary file: " +
                                          std::string(std::strerror(errno)));
-            close(fd);
             temporary = file = pattern;
-            write_file(file, archive);
+            // Into the file mkstemp made, not one beside it under a name another user of /tmp
+            // could have guessed.
+            size_t written = 0;
+            while (written < archive.size()) {
+                auto count = write(fd, archive.data() + written, archive.size() - written);
+                if (count < 0 && errno == EINTR)
+                    continue;
+                if (count < 0)
+                    break;
+                written += static_cast<size_t>(count);
+            }
+            int failed = written < archive.size() ? errno : 0;
+            close(fd);
+            if (failed) {
+                std::filesystem::remove(temporary, failure);
+                throw std::runtime_error("cannot write " + pattern + ": " + std::strerror(failed));
+            }
         }
         try {
             archive = run_filter({"gzip", "-dc"}, file, max_rice_archive);
@@ -366,12 +381,12 @@ std::map<std::string, std::string> rice_source(const std::string &source) {
             throw std::runtime_error("downloading a rice needs curl");
         std::cout << "Downloading " << printable_text(source) << '\n' << std::flush;
         // Into memory, and cut short past the most a rice may be.
-        auto limit = std::to_string(max_rice_file);
+        auto limit = std::to_string(max_rice_archive);
         auto archive = run_filter({"curl", "--proto", "=https", "--proto-redir", "=https", "--fail",
                                    "--silent", "--show-error", "--location", "--max-redirs", "5",
                                    "--max-filesize", limit, "--max-time", "300", "--output", "-",
                                    source},
-                                  "/dev/null", max_rice_file);
+                                  "/dev/null", max_rice_archive);
         return archive_files(std::move(archive), {});
     }
     std::error_code failure;

@@ -145,9 +145,30 @@ void publish_toplevel(struct sh_toplevel *toplevel) {
     add_listener(&toplevel->foreign->events.set_rectangle, &toplevel->foreign_rectangle,
                  foreign_set_rectangle);
     wlr_foreign_toplevel_handle_v1_set_fullscreen(toplevel->foreign, toplevel->fullscreen);
-    struct wlr_output *output = toplevel_output(toplevel);
-    if (output)
-        wlr_foreign_toplevel_handle_v1_output_enter(toplevel->foreign, output);
+    toplevel->foreign_output[0] = '\0';
+    foreign_outputs_follow(toplevel->server);
+}
+
+/* Each window's handle says which output the window is on, and as it moves to another: a
+ * taskbar that lists a monitor's own windows (waybar's wlr/taskbar) goes by it. */
+void foreign_outputs_follow(struct sh_server *server) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (!toplevel->foreign || !strcmp(toplevel->foreign_output, toplevel->output))
+            continue;
+        struct wlr_output *now = find_output(server, toplevel->output);
+        if (!now)
+            continue;
+        // One out of the layout is left too; one unplugged was, by wlroots, as it went.
+        struct sh_output *was;
+        for_each_connected_output(was, server) {
+            if (!strcmp(was->wlr_output->name, toplevel->foreign_output))
+                wlr_foreign_toplevel_handle_v1_output_leave(toplevel->foreign, was->wlr_output);
+        }
+        wlr_foreign_toplevel_handle_v1_output_enter(toplevel->foreign, now);
+        snprintf(toplevel->foreign_output, sizeof(toplevel->foreign_output), "%s",
+                 toplevel->output);
+    }
 }
 void unpublish_toplevel(struct sh_toplevel *toplevel) {
     unlist_toplevel(toplevel);

@@ -35,6 +35,7 @@ struct Node {
     double ratio = 0.5;     // share of the first child
     bool horizontal = true; // children side by side, from the last arrangement
     sh_rect box{};          // from the last arrangement, without gaps
+    sh_rect placed{};       // a leaf's place inside the gaps, from the last arrangement
     // The direction split_toggle keeps, whatever the box's shape; unset, the shape decides.
     std::optional<bool> forced;
 };
@@ -219,6 +220,7 @@ struct sh_tiling {
         int bottom = inset_end(box.y + box.height == area.y + area.height);
         sh_rect rect{box.x + left, box.y + top, std::max(1, box.width - left - right),
                      std::max(1, box.height - top - bottom)};
+        node->placed = rect;
         place(userdata, node->window, rect);
     }
 
@@ -757,6 +759,14 @@ bool sh_tiling_resize(sh_tiling *tiling, const void *window, uint32_t edges, sh_
     auto found = tiling->leaves.find(window);
     if (found == tiling->leaves.end())
         return false;
+    // `rect` is the window's place, inside its tile's gaps, and a split lies on the tile's edge,
+    // that much further out: taken for the split, the window's edge would come back short of the
+    // pointer by the gap, with every drag anew.
+    const Node *leaf = found->second.first;
+    const sh_rect &tile = leaf->box, &placed = leaf->placed;
+    int left = rect.x - (placed.x - tile.x), top = rect.y - (placed.y - tile.y);
+    int right = rect.x + rect.width + (tile.x + tile.width) - (placed.x + placed.width);
+    int bottom = rect.y + rect.height + (tile.y + tile.height) - (placed.y + placed.height);
     if (Mode mode = tiling->mode(found->second.second); mode.layout != SH_LAYOUT_DWINDLE) {
         if (mode.layout == SH_LAYOUT_SCROLL) {
             // Dragging a side of a column sets its width.
@@ -780,9 +790,9 @@ bool sh_tiling_resize(sh_tiling *tiling, const void *window, uint32_t edges, sh_
             return false;
         double position;
         if (master && (edges & SH_EDGE_RIGHT))
-            position = rect.x + rect.width;
+            position = right;
         else if (!master && (edges & SH_EDGE_LEFT))
-            position = rect.x;
+            position = left;
         else
             return false;
         double ratio = std::clamp((position - mode.area.x) / mode.area.width, ratio_min, ratio_max);
@@ -802,18 +812,18 @@ bool sh_tiling_resize(sh_tiling *tiling, const void *window, uint32_t edges, sh_
         const sh_rect &box = node->box;
         if (node->horizontal && !horizontal_done && box.width > 0) {
             if ((edges & SH_EDGE_RIGHT) && is_first) {
-                set(node, rect.x + rect.width, box.x, box.width);
+                set(node, right, box.x, box.width);
                 horizontal_done = true;
             } else if ((edges & SH_EDGE_LEFT) && !is_first) {
-                set(node, rect.x, box.x, box.width);
+                set(node, left, box.x, box.width);
                 horizontal_done = true;
             }
         } else if (!node->horizontal && !vertical_done && box.height > 0) {
             if ((edges & SH_EDGE_BOTTOM) && is_first) {
-                set(node, rect.y + rect.height, box.y, box.height);
+                set(node, bottom, box.y, box.height);
                 vertical_done = true;
             } else if ((edges & SH_EDGE_TOP) && !is_first) {
-                set(node, rect.y, box.y, box.height);
+                set(node, top, box.y, box.height);
                 vertical_done = true;
             }
         }
@@ -864,7 +874,7 @@ bool sh_tiling_resize_by(sh_tiling *tiling, const void *window, uint32_t directi
     // Both edges move the same way: the one facing `direction` grows the window, the other
     // shrinks it.
     int shift = toward_end ? amount : -amount;
-    sh_rect rect = found->second.first->box;
+    sh_rect rect = found->second.first->placed; // the window's place, as sh_tiling_resize takes it
     if (edge == SH_EDGE_LEFT) {
         rect.x += shift;
         rect.width -= shift;

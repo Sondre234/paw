@@ -480,7 +480,7 @@ Context gather() {
     }
     if (context.config_path.empty()) {
         fs::path personal;
-        if (auto xdg = variable("XDG_CONFIG_HOME"); !xdg.empty())
+        if (auto xdg = variable("XDG_CONFIG_HOME"); xdg.starts_with('/'))
             personal = fs::path(xdg) / "paw/init.lua";
         else if (auto home = variable("HOME"); !home.empty())
             personal = fs::path(home) / ".config/paw/init.lua";

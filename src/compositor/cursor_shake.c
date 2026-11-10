@@ -146,9 +146,7 @@ static void restore(struct sh_cursor_shake *shake) {
         show_xcursor(server, image);
         return;
     }
-    set_default_cursor(server);
-    wlr_seat_pointer_notify_clear_focus(server->seat);
-    process_cursor_motion(server, (uint32_t)now_ms());
+    cursor_give_back(server);
 }
 
 static int step(void *data) {

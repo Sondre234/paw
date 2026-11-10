@@ -21,6 +21,8 @@ class Backlight : public QObject {
     bool present() const { return present_; }
     // 0 to 100; -1 without a backlight.
     int percent() const { return percent_; }
+    // How much of the range one of its levels is, rounded up: 1 for a hundred levels or more.
+    int levelPercent() const { return max_ > 0 ? (100 + max_ - 1) / max_ : 1; }
     // Its name under class/backlight, "" without one.
     QString name() const { return name_; }
     bool watching() const { return notifier_ != nullptr; }

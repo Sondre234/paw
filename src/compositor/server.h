@@ -1105,6 +1105,7 @@ struct sh_toplevel {
     int home_workspace;
     bool home_tiled;
     struct wlr_foreign_toplevel_handle_v1 *foreign;
+    char foreign_output[64]; /* the output that handle last said the window is on */
     /* The window's number, given as it is first published and to no other window while the
      * compositor runs: the window control's id event and the switcher's lines name it by this,
      * for the shell to match the two. 0 until then. */
@@ -1320,7 +1321,6 @@ struct sh_keyboard {
     /* A held key whose binding `repeats` (keyboard resizing's, unless told otherwise) runs its
      * action again at the keyboard's repeat rate, as clients repeat keys themselves. */
     struct wl_event_source *repeat_timer;
-    uint32_t repeat_keycode;
     enum sh_action repeat_action;
     int repeat_argument;
     bool repeat_locked; // its binding runs while the session is locked too
@@ -1400,6 +1400,9 @@ void set_default_cursor(struct sh_server *server);
 void show_xcursor(struct sh_server *server, const char *name);
 void cursor_hide(struct sh_server *server, uint32_t why);
 void cursor_show(struct sh_server *server, uint32_t why);
+/* The cursor's image back to what the client under the pointer asked for, or, with none noted,
+ * the default and the client entered anew to set its own. */
+void cursor_give_back(struct sh_server *server);
 bool client_cursor_none(struct sh_server *server);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
 struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
@@ -1490,11 +1493,13 @@ struct wlr_ext_image_capture_source_v1 *toplevel_capture_source(struct sh_toplev
 void server_new_capture_request(struct wl_listener *listener, void *data);
 void publish_toplevel(struct sh_toplevel *toplevel);
 void unpublish_toplevel(struct sh_toplevel *toplevel);
+void foreign_outputs_follow(struct sh_server *server);
 
 /* frame.c */
 int pixel_scale(struct sh_server *server);
 struct wlr_buffer *keep_buffer(struct wlr_buffer *buffer);
 void drop_kept_buffer(struct wlr_buffer *buffer);
+void set_kept_buffer(struct wlr_scene_buffer *node, struct wlr_buffer *buffer);
 struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_shadow *look,
                                      int width, int height);
 enum wlr_xdg_toplevel_decoration_v1_mode
@@ -1973,6 +1978,7 @@ void touch_init(struct sh_server *server);
 void touch_finish(struct sh_server *server);
 
 /* toplevel.c */
+struct sh_toplevel *fullscreen_on(struct sh_server *server, struct wlr_output *output);
 bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule);
 struct wlr_surface *toplevel_surface(struct sh_toplevel *toplevel);
 bool toplevel_mapped(struct sh_toplevel *toplevel);

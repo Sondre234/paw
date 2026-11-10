@@ -163,8 +163,9 @@ int do_file(lua_State *L) {
     lua_settop(L, 1);
     if (load_file(L) != 1)
         return lua_error(L);
+    int below = lua_gettop(L) - 1; // load_file's arguments, under the chunk
     lua_call(L, 0, LUA_MULTRET);
-    return lua_gettop(L) - 1;
+    return lua_gettop(L) - below;
 }
 int nothing(lua_State *) { return 0; }
 
@@ -539,7 +540,13 @@ class Hyprlang {
             auto key = trim(std::string_view(line).substr(0, equals));
             auto value = trim(std::string_view(line).substr(equals + 1));
             if (key.starts_with("$")) {
-                variables_[key.substr(1)] = expand(value);
+                auto expanded = expand(value);
+                // $a = $a$a over and over would grow without end.
+                if (expanded.size() > max_variable) {
+                    report_.skip(files_, origin, "variable " + key + " is too long");
+                    continue;
+                }
+                variables_[key.substr(1)] = std::move(expanded);
                 continue;
             }
             value = expand(value);
@@ -652,7 +659,9 @@ class Hyprlang {
                              "source " + value + ": missing or outside the directory");
             return;
         }
-        auto parent = files_.resolve(pattern.parent_path().string(), directory);
+        // A bare "*.conf" is in the directory of the file that names it.
+        auto parent = files_.resolve(
+            pattern.has_parent_path() ? pattern.parent_path().string() : ".", directory);
         if (!parent || !fs::is_directory(*parent)) {
             report_.skip(files_, origin, "source " + value + ": missing or outside the directory");
             return;
@@ -725,6 +734,7 @@ class Hyprlang {
     Report &report_;
     std::map<std::string, std::string> variables_;
     int count_ = 0;
+    static constexpr size_t max_variable = 64 * 1024;
 };
 } // namespace
 

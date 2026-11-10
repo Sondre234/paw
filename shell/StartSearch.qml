@@ -38,6 +38,8 @@ Item {
                                        files: "Files", web: "Search the web" })
     // Where the pointer was last seen over the results.
     property point pointer: Qt.point(-1, -1)
+    // Shown again, the pointer may have moved meanwhile: where it rests then chooses nothing.
+    onVisibleChanged: pointer = Qt.point(-1, -1)
 
     // The result the keyboard is at, or null.
     function currentItem() { return list.itemAtIndex(current) }
@@ -130,6 +132,8 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         model: found.results
         currentIndex: found.current
+        // A new list has the view start again at its first entry, whatever its binding says.
+        onModelChanged: currentIndex = Qt.binding(function() { return found.current })
         highlightFollowsCurrentItem: false
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }

@@ -116,8 +116,12 @@ void Audio::setUnavailable() {
 }
 void Audio::setVolume(int percent) {
     auto *output = current();
-    percent = std::clamp(percent, 0, maxVolume);
-    if (!output || output->volume == percent)
+    if (!output)
+        return;
+    // One set louder than the most elsewhere stays there until it is turned down: a step up
+    // held to the most would turn it down.
+    percent = std::clamp(percent, 0, std::max(maxVolume, output->volume));
+    if (output->volume == percent)
         return;
     output->volume = percent;
     sendVolume(output->name, percent);
@@ -150,8 +154,10 @@ void Audio::setOutput(const QString &name) {
 }
 void Audio::setStreamVolume(int id, int percent) {
     auto *stream = streams_.find(uint32_t(id));
-    percent = std::clamp(percent, 0, maxVolume);
-    if (!stream || stream->volume == percent)
+    if (!stream)
+        return;
+    percent = std::clamp(percent, 0, std::max(maxVolume, stream->volume)); // as setVolume
+    if (stream->volume == percent)
         return;
     stream->volume = percent;
     sendStreamVolume(stream->id, percent);

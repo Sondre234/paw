@@ -1029,9 +1029,10 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     if (own) {
         int tab;
         struct sh_toplevel *tabbed = tabs_at(server, server->cursor->x, server->cursor->y, &tab);
-        if (tabbed) {
-            // A press on a tab brings that window forward; the release is ignored.
-            if (event->state == WL_POINTER_BUTTON_STATE_PRESSED && event->button == BTN_LEFT) {
+        if (tabbed && event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            // A press on a tab brings that window forward. Its release goes on to the seat,
+            // which drops that of a button it never heard go down, and ends a drag let go here.
+            if (event->button == BTN_LEFT) {
                 struct sh_toplevel *member = group_tab(tabbed, tab);
                 focus_toplevel(member ? member : tabbed);
             }
@@ -1220,6 +1221,10 @@ void cursor_show(struct sh_server *server, uint32_t why) {
         color_picker_show_loupe(server);
         return;
     }
+    cursor_give_back(server);
+}
+
+void cursor_give_back(struct sh_server *server) {
     // The image the client under the pointer last asked for, heard meanwhile too: given back
     // as it is, without the leave and enter that would have the client set it again (which a
     // game holding the pointer may take for losing it).
@@ -1239,7 +1244,9 @@ void cursor_show(struct sh_server *server, uint32_t why) {
     }
     set_default_cursor(server);
     // A client sets its cursor as the pointer enters it, so the one under the pointer is entered
-    // anew to set it again.
+    // anew to set it again; not one holding the pointer by a button, which would lose it.
+    if (server->seat->pointer_state.button_count)
+        return;
     wlr_seat_pointer_notify_clear_focus(server->seat);
     process_cursor_motion(server, (uint32_t)now_ms());
 }

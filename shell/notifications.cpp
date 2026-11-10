@@ -365,12 +365,12 @@ uint NotificationCenter::notify(Notification n, uint replacesId) {
     uint id = 0;
     if (replacesId && (history_.find(replacesId) || cards_.find(replacesId)))
         id = replacesId;
+    // A card first: a transient one (a volume script's) is in no history, nor is any without one.
     if (!id && !n.tag.isEmpty())
-        for (const auto &old : history_.items())
-            if (old.app == n.app && old.tag == n.tag) {
-                id = old.id;
-                break;
-            }
+        for (const auto *shown : {&cards_.items(), &history_.items()})
+            for (const auto &old : *shown)
+                if (!id && old.app == n.app && old.tag == n.tag)
+                    id = old.id;
     if (!id)
         id = ++lastId_;
     n.id = id;

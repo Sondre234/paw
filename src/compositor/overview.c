@@ -653,6 +653,8 @@ void overview_assist(struct sh_server *server, struct sh_toplevel *from, struct 
         return;
     if (overview->open)
         overview_close(server, NULL, -1);
+    if (overview->visible) // still gliding closed: hidden here, before it would forget `from`
+        overview_hide(server);
     overview->assist_from = from;
     overview->assist_slot = slot;
     overview->assist_radius = radius;

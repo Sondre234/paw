@@ -65,7 +65,18 @@ Item {
     // typed or the selection moved, so that the first window, selected as the palette opens,
     // does not fade the screen behind it unasked, and typing puts a first peek off until it
     // rests. The macOS style does not peek, nor does a task model without peek.
-    onShownChanged: peek.engaged = false
+    onShownChanged: { peek.engaged = false; pointerSeen = false }
+    // The pointer chooses the result it moves onto, not the one the list puts under it while
+    // it rests: the best match stays chosen, for Enter.
+    property point pointer: Qt.point(-1, -1)
+    property bool pointerSeen: false
+    function pointerAt(at, index) {
+        var moved = pointerSeen && (at.x !== pointer.x || at.y !== pointer.y)
+        pointer = at
+        pointerSeen = true
+        if (moved)
+            shell.palette.selected = index
+    }
     Item {
         id: peek
         readonly property var source: shell.tasks
@@ -199,6 +210,8 @@ Item {
             interactive: false
             model: shell.palette.results
             currentIndex: shell.palette.selected
+            // A new list has the view start again at its first entry, whatever its binding says.
+            onModelChanged: currentIndex = Qt.binding(function() { return shell.palette.selected })
             // The selection is shaded as a menu's row is, it being what Enter runs; it moves at
             // once, as fast as the keys go. Spotlight's row fills itself.
             highlightMoveDuration: 0
@@ -271,7 +284,7 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     hoverEnabled: true
-                    onEntered: shell.palette.selected = row.index
+                    onPositionChanged: (mouse) => root.pointerAt(mapToItem(null, mouse.x, mouse.y), row.index)
                     onClicked: shell.palette.activate(row.index)
                 }
                 // A file's folder opens from a button beside its kind, as Ctrl+Enter opens it.
@@ -284,7 +297,7 @@ Item {
                     width: Theme.rowHeight; height: Theme.rowHeight
                     focusPolicy: Qt.NoFocus
                     Accessible.name: "Open the folder"
-                    onHoveredChanged: if (hovered) shell.palette.selected = row.index
+                    HoverHandler { onPointChanged: if (hovered) root.pointerAt(point.scenePosition, row.index) }
                     onClicked: shell.palette.reveal(row.index)
                     contentItem: Item { Icon { anchors.centerIn: parent; name: "folder-open"; size: Theme.iconSizeSmall; color: Theme.textMuted } }
                 }
@@ -352,7 +365,7 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
-                        onEntered: shell.palette.selected = result.index
+                        onPositionChanged: (mouse) => root.pointerAt(mapToItem(null, mouse.x, mouse.y), result.index)
                         onClicked: shell.palette.activate(result.index)
                     }
                     // The chosen file's folder opens from a button at its end, as Ctrl+Enter

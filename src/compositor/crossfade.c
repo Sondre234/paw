@@ -55,13 +55,7 @@ static bool shows_fullscreen(struct sh_output *output) {
     struct sh_server *server = output->server;
     if (server->overview.visible || server->switcher.open)
         return false;
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (!toplevel->unmanaged && toplevel->fullscreen && toplevel_mapped(toplevel) &&
-            toplevel_visible(toplevel) && output_named(output, toplevel->output))
-            return true;
-    }
-    return false;
+    return fullscreen_on(server, output->wlr_output);
 }
 
 /* Draws what the scene shows on `output` into a buffer of its own, as its next frame would be

@@ -200,8 +200,8 @@ bool session_save(struct sh_server *server, const char *name, int *windows, char
     if (ok && rename(temporary, path) != 0)
         ok = false;
     if (!ok) {
-        unlink(temporary);
         snprintf(error, error_size, "cannot write %s: %s", path, strerror(errno));
+        unlink(temporary);
     }
     *windows = session->window_count;
     free(session);
@@ -431,8 +431,10 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
     int live_count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
-        if (toplevel->unmanaged || !toplevel_mapped(toplevel) ||
-            live_count >= SH_SESSION_MAX_WINDOWS * 2)
+        // Those a session holds (session_capture): a tab behind its group's shown one or a
+        // terminal swallowed is no window to put back.
+        if (toplevel->unmanaged || !toplevel_mapped(toplevel) || toplevel->group_hidden ||
+            toplevel->swallowed || live_count >= SH_SESSION_MAX_WINDOWS * 2)
             continue;
         const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
         live[live_count] = toplevel;

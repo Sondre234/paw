@@ -1262,9 +1262,15 @@ void sh_anim_morph_commit(struct sh_animator *animator, struct sh_anim *anim, in
         anim->answered = true;
         // At a size of its own, each time: the window eases on to it from where it is drawn.
         int duration = duration_of(animator, anim->morph_kind);
-        if (duration > 0 && width > 0 && height > 0 && other)
+        if (duration > 0 && width > 0 && height > 0 && other) {
+            // The same change of size goes on, so what follows it (a bounded tile's cut) does
+            // too, rather than being told it is over as when another animation takes the tree.
+            void (*track)(void *, bool) = anim->track;
+            anim->track = NULL;
             glide_begin(animator, anim, anim->tree, 0, 0, anim->morph_kind, duration, width,
                         height);
+            anim->track = track;
+        }
     }
     // What the client drew goes back to rest, to be read afresh once the scene has taken in the
     // commit, by the next frame: its new size can be just what the animation drew it at, which

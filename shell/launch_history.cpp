@@ -48,11 +48,9 @@ bool LaunchHistory::record(const QString &id, const QDateTime &when) {
         return true;
     QByteArray lines;
     for (const auto &item : entries_)
-        lines += QString("%1\t%2\t%3\n")
-                     .arg(item.id)
-                     .arg(item.count)
-                     .arg(item.last.toSecsSinceEpoch())
-                     .toUtf8();
+        // The id is a command line as typed: it may hold a %1 that arg() would take for a place.
+        lines += item.id.toUtf8() + '\t' + QByteArray::number(item.count) + '\t' +
+                 QByteArray::number(item.last.toSecsSinceEpoch()) + '\n';
     error_ = saveFile(path_, lines);
     return error_.isEmpty();
 }
