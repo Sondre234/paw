@@ -1978,6 +1978,7 @@ void touch_init(struct sh_server *server);
 void touch_finish(struct sh_server *server);
 
 /* toplevel.c */
+struct sh_toplevel *fullscreen_on(struct sh_server *server, struct wlr_output *output);
 bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule);
 struct wlr_surface *toplevel_surface(struct sh_toplevel *toplevel);
 bool toplevel_mapped(struct sh_toplevel *toplevel);

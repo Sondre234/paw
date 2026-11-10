@@ -617,6 +617,18 @@ static void xdg_toplevel_request_maximize(struct wl_listener *listener, void *da
     wlr_xdg_surface_schedule_configure(toplevel->xdg_toplevel->base);
 }
 
+/* The fullscreen window `output` shows (mapped, on the workspace shown, not minimized); NULL for
+ * none, and for no output. */
+struct sh_toplevel *fullscreen_on(struct sh_server *server, struct wlr_output *output) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (output && toplevel->fullscreen && toplevel_mapped(toplevel) &&
+            toplevel_visible(toplevel) && !strcmp(toplevel->output, output->name))
+            return toplevel;
+    }
+    return NULL;
+}
+
 void fit_fullscreen(struct sh_toplevel *toplevel) {
     struct wlr_output *output = toplevel_output(toplevel);
     if (!output)

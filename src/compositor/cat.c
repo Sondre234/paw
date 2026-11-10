@@ -121,18 +121,6 @@ static struct sh_toplevel *window_numbered(struct sh_server *server, uint32_t id
     return NULL;
 }
 
-static bool shows_fullscreen(struct sh_server *server, struct wlr_output *output) {
-    if (!output)
-        return false;
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (!toplevel->unmanaged && toplevel->fullscreen && toplevel_mapped(toplevel) &&
-            toplevel_visible(toplevel) && !strcmp(toplevel->output, output->name))
-            return true;
-    }
-    return false;
-}
-
 /* The window that has been urgent the longest and stands where the cat could go, else 0. */
 static uint32_t urgent_window(struct sh_server *server) {
     struct sh_toplevel *toplevel, *oldest = NULL;
@@ -201,8 +189,8 @@ static const char *hidden_why(struct sh_cat_view *view) {
     struct sh_output *output = cat_output(view);
     if (!output || output->powered_off || !output->wlr_output->enabled)
         return "display_off";
-    if (shows_fullscreen(server, output->wlr_output) ||
-        shows_fullscreen(server, focused_output(server)))
+    if (fullscreen_on(server, output->wlr_output) ||
+        fullscreen_on(server, focused_output(server)))
         return "fullscreen";
     return NULL;
 }

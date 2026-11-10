@@ -57,16 +57,6 @@ static enum wl_output_transform quarter_transform(int quarters) {
     return transforms[quarters & 3];
 }
 
-static bool shows_fullscreen(struct sh_output *output) {
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &output->server->toplevels, link) {
-        if (!toplevel->unmanaged && toplevel->fullscreen && toplevel_mapped(toplevel) &&
-            toplevel_visible(toplevel) && output_named(output, toplevel->output))
-            return true;
-    }
-    return false;
-}
-
 /* Why `output` shows no particles now, whatever the kind: NULL if it may. */
 static const char *paused_why(struct sh_ambient *ambient, struct sh_output *output) {
     struct sh_server *server = ambient->server;
@@ -81,7 +71,7 @@ static const char *paused_why(struct sh_ambient *ambient, struct sh_output *outp
     if (output->powered_off || output->idle_off || !output->wlr_output->enabled ||
         wlr_box_empty(&box))
         return "display_off";
-    if (shows_fullscreen(output))
+    if (fullscreen_on(output->server, output->wlr_output))
         return "fullscreen";
     if (server->idle.done & (1u << SH_IDLE_DIM))
         return "dimmed";
