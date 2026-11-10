@@ -75,9 +75,9 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
         wrapped_count(server, SH_WRAPPED_KEYS); // how many, never which
     bool handled = false;
     uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->wlr_keyboard);
-    // Any key pressed or the repeating one released stops the repeat.
-    if (keyboard->repeat_timer && (event->state == WL_KEYBOARD_KEY_STATE_PRESSED ||
-                                   event->keycode == keyboard->repeat_keycode))
+    // Any key going down or up stops the repeat: the binding's own, and its modifier let go
+    // with the key still down, which would otherwise go on running it.
+    if (keyboard->repeat_timer)
         wl_event_source_timer_update(keyboard->repeat_timer, 0);
     if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
         // A key that woke the monitors does nothing else: nobody saw what it would do.
@@ -465,12 +465,11 @@ static unsigned binding_flags(struct sh_server *server) {
 
 /* A binding with `repeats` runs its action again while its key is held, after the keyboard's
  * repeat delay and at its rate. */
-static void start_repeat(struct sh_keyboard *keyboard, uint32_t keycode, enum sh_action action,
-                         int argument, unsigned flags) {
+static void start_repeat(struct sh_keyboard *keyboard, enum sh_action action, int argument,
+                         unsigned flags) {
     if (!(flags & SH_BINDING_REPEATS) || keyboard->wlr_keyboard->repeat_info.rate <= 0 ||
         !keyboard->repeat_timer)
         return;
-    keyboard->repeat_keycode = keycode;
     keyboard->repeat_action = action;
     keyboard->repeat_argument = argument;
     keyboard->repeat_locked = flags & SH_BINDING_LOCKED;
@@ -507,7 +506,7 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         if (!(flags & SH_BINDING_LOCKED))
             return false;
         run_action(server, action, argument);
-        start_repeat(keyboard, keycode, action, argument, flags);
+        start_repeat(keyboard, action, argument, flags);
         return true;
     }
     if (color_picker_key(server, modifiers, sym))
@@ -582,6 +581,6 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
     }
     unsigned flags = binding_flags(server);
     run_action(server, action, argument);
-    start_repeat(keyboard, keycode, action, argument, flags);
+    start_repeat(keyboard, action, argument, flags);
     return true;
 }

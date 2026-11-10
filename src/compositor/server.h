@@ -1321,7 +1321,6 @@ struct sh_keyboard {
     /* A held key whose binding `repeats` (keyboard resizing's, unless told otherwise) runs its
      * action again at the keyboard's repeat rate, as clients repeat keys themselves. */
     struct wl_event_source *repeat_timer;
-    uint32_t repeat_keycode;
     enum sh_action repeat_action;
     int repeat_argument;
     bool repeat_locked; // its binding runs while the session is locked too
