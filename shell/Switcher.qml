@@ -83,6 +83,8 @@ Item {
             clip: true
             model: switcher.pictured ? [] : switcher.listed
             currentIndex: switcher.listedSelected
+            // A new list has the view start again at its first entry, whatever its binding says.
+            onModelChanged: currentIndex = Qt.binding(function() { return switcher.listedSelected })
             // The selection glides from window to window, once the switcher has come in.
             highlightMoveDuration: switcher.progress >= 1 ? Theme.durationNormal : 0
             highlight: Item {

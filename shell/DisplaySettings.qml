@@ -120,6 +120,8 @@ Item {
         implicitHeight: Theme.buttonHeight
         textRole: "label"
         currentIndex: selectedIndex
+        // A new list has the view start again at its first entry, whatever its binding says.
+        onModelChanged: currentIndex = Qt.binding(function() { return choice.selectedIndex })
         onActivated: (index) => {
             choice.picked(index)
             choice.currentIndex = Qt.binding(function() { return choice.selectedIndex })

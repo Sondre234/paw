@@ -199,6 +199,8 @@ Item {
             interactive: false
             model: shell.palette.results
             currentIndex: shell.palette.selected
+            // A new list has the view start again at its first entry, whatever its binding says.
+            onModelChanged: currentIndex = Qt.binding(function() { return shell.palette.selected })
             // The selection is shaded as a menu's row is, it being what Enter runs; it moves at
             // once, as fast as the keys go. Spotlight's row fills itself.
             highlightMoveDuration: 0

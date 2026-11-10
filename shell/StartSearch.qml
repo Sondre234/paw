@@ -130,6 +130,8 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         model: found.results
         currentIndex: found.current
+        // A new list has the view start again at its first entry, whatever its binding says.
+        onModelChanged: currentIndex = Qt.binding(function() { return found.current })
         highlightFollowsCurrentItem: false
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
