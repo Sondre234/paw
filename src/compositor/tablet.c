@@ -73,6 +73,14 @@ static bool holds_pointer(const struct sh_tablet_tool *tool) {
     return false;
 }
 
+static bool holds_button(const struct sh_tablet_tool *tool, uint32_t button) {
+    for (int i = 0; i < 4; ++i) {
+        if (tool->held[i] == button)
+            return true;
+    }
+    return false;
+}
+
 static void release_pointer(struct sh_tablet_tool *tool, uint32_t time) {
     for (int i = 0; i < 4; ++i) {
         if (tool->held[i])
@@ -261,15 +269,18 @@ static void tool_button(struct wl_listener *listener, void *data) {
     if (!tool)
         return;
     input_activity(server, event->state == WLR_BUTTON_PRESSED);
-    if (!tool->pointer && tool->tool_v2->focused_surface) {
-        wlr_tablet_v2_tablet_tool_notify_button(tool->tool_v2, event->button,
-                                                (enum zwp_tablet_pad_v2_button_state)event->state);
-        return;
-    }
     // As the pointer, a pen's lower button is the right one and its upper the middle one.
     uint32_t button = event->button == BTN_STYLUS    ? BTN_RIGHT
                       : event->button == BTN_STYLUS2 ? BTN_MIDDLE
                                                      : event->button;
+    // A button goes up where it went down: one pressed as the tool's over a surface that takes
+    // tablets is let go as the tool's, though the pen has since left for where it is the pointer.
+    bool pressed = event->state == WLR_BUTTON_PRESSED;
+    if (pressed ? !tool->pointer && tool->tool_v2->focused_surface : !holds_button(tool, button)) {
+        wlr_tablet_v2_tablet_tool_notify_button(tool->tool_v2, event->button,
+                                                (enum zwp_tablet_pad_v2_button_state)event->state);
+        return;
+    }
     pointer_button(tool, event->time_msec, button,
                    event->state == WLR_BUTTON_PRESSED ? WL_POINTER_BUTTON_STATE_PRESSED
                                                       : WL_POINTER_BUTTON_STATE_RELEASED);
