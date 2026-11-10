@@ -653,7 +653,9 @@ class Hyprlang {
                              "source " + value + ": missing or outside the directory");
             return;
         }
-        auto parent = files_.resolve(pattern.parent_path().string(), directory);
+        // A bare "*.conf" is in the directory of the file that names it.
+        auto parent = files_.resolve(
+            pattern.has_parent_path() ? pattern.parent_path().string() : ".", directory);
         if (!parent || !fs::is_directory(*parent)) {
             report_.skip(files_, origin, "source " + value + ": missing or outside the directory");
             return;
