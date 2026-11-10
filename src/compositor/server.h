@@ -1105,6 +1105,7 @@ struct sh_toplevel {
     int home_workspace;
     bool home_tiled;
     struct wlr_foreign_toplevel_handle_v1 *foreign;
+    char foreign_output[64]; /* the output that handle last said the window is on */
     /* The window's number, given as it is first published and to no other window while the
      * compositor runs: the window control's id event and the switcher's lines name it by this,
      * for the shell to match the two. 0 until then. */
@@ -1493,6 +1494,7 @@ struct wlr_ext_image_capture_source_v1 *toplevel_capture_source(struct sh_toplev
 void server_new_capture_request(struct wl_listener *listener, void *data);
 void publish_toplevel(struct sh_toplevel *toplevel);
 void unpublish_toplevel(struct sh_toplevel *toplevel);
+void foreign_outputs_follow(struct sh_server *server);
 
 /* frame.c */
 int pixel_scale(struct sh_server *server);

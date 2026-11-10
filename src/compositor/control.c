@@ -720,6 +720,7 @@ void notify_subscribers(struct sh_server *server) {
     xray_touch(server);
     idle_inhibitors_follow(server); // a window shown or hidden
     window_objects_changed(server);
+    foreign_outputs_follow(server);
     char state[sizeof(server->sent_state)];
     describe_state(server, state, sizeof(state));
     if (!strcmp(state, server->sent_state))
