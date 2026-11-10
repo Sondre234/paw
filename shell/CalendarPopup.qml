@@ -106,6 +106,8 @@ PopupCard {
         function untilMinute() { var d = new Date(); return 60050 - d.getSeconds() * 1000 - d.getMilliseconds() }
         interval: untilMinute(); running: calendar.visible; repeat: true
         onTriggered: { calendar.now = new Date(); interval = untilMinute() }
+        // Opened again, it is due at the next minute, not a minute after its last tick.
+        onRunningChanged: if (running) { calendar.now = new Date(); interval = untilMinute() }
     }
 
     // A month or a year to pick in the zoomed-out views: a disc in the accent colour for this
