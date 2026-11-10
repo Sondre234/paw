@@ -115,6 +115,11 @@ int main() {
         placed = arrange(tiling, area, 8);
         require(std::abs(placed[&windows[0]].x - (area.x + 1200 + 4)) <= 4,
                 "split did not follow the resized edge");
+        // A drag that ends where it began leaves the tile as it was, gaps and all.
+        column = placed[&windows[1]];
+        sh_tiling_resize(tiling, &windows[1], SH_EDGE_RIGHT, column);
+        placed = arrange(tiling, area, 8);
+        require(placed[&windows[1]].width == column.width, "a drag back to its start shrank the tile");
         require(!sh_tiling_resize(tiling, &windows[0], SH_EDGE_RIGHT, placed[&windows[0]]),
                 "the outer edge of the output moved");
 

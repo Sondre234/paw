@@ -335,6 +335,9 @@ void process_cursor_resize(struct sh_server *server) {
         struct sh_rect rect = {new_left, new_top, new_right - new_left, new_bottom - new_top};
         if (pseudo_resize(toplevel, server->resize_edges, server->grab_geobox, rect))
             return; // a pseudotiled window takes the size itself
+        // The tiling places the window with its border (inside_border takes it off).
+        int b = server_settings(server)->border_width;
+        rect = (struct sh_rect){rect.x - b, rect.y - b, rect.width + 2 * b, rect.height + 2 * b};
         struct wlr_output *output = tiled_output(toplevel);
         if (sh_tiling_resize(server->tiling, toplevel, server->resize_edges, rect) && output)
             reflow_output(server, output);
