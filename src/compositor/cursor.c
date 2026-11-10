@@ -1029,9 +1029,10 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     if (own) {
         int tab;
         struct sh_toplevel *tabbed = tabs_at(server, server->cursor->x, server->cursor->y, &tab);
-        if (tabbed) {
-            // A press on a tab brings that window forward; the release is ignored.
-            if (event->state == WL_POINTER_BUTTON_STATE_PRESSED && event->button == BTN_LEFT) {
+        if (tabbed && event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            // A press on a tab brings that window forward. Its release goes on to the seat,
+            // which drops that of a button it never heard go down, and ends a drag let go here.
+            if (event->button == BTN_LEFT) {
                 struct sh_toplevel *member = group_tab(tabbed, tab);
                 focus_toplevel(member ? member : tabbed);
             }
