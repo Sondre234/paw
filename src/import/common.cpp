@@ -103,6 +103,11 @@ std::string Files::show(const Origin &origin) const {
     auto path = origin.file.string();
     if (!home_.empty() && inside(origin.file, home_))
         path = "~/" + origin.file.lexically_relative(home_).string();
+    // It goes into the theme's comments and the report as it is: a file's or a chunk's name
+    // with a line break in it would end the comment and go on as configuration.
+    for (auto &c : path)
+        if (static_cast<unsigned char>(c) < 0x20 || c == 0x7f)
+            c = '?';
     return origin.line > 0 ? path + ":" + std::to_string(origin.line) : path;
 }
 
