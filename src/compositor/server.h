@@ -1400,6 +1400,9 @@ void set_default_cursor(struct sh_server *server);
 void show_xcursor(struct sh_server *server, const char *name);
 void cursor_hide(struct sh_server *server, uint32_t why);
 void cursor_show(struct sh_server *server, uint32_t why);
+/* The cursor's image back to what the client under the pointer asked for, or, with none noted,
+ * the default and the client entered anew to set its own. */
+void cursor_give_back(struct sh_server *server);
 bool client_cursor_none(struct sh_server *server);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
 struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
