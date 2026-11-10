@@ -462,7 +462,9 @@ void DisplaySettings::setResolution(const QString &name, int width, int height) 
     for (const auto &mode : monitor->modes) {
         if (mode.width != width || mode.height != height)
             continue;
-        if (std::abs(mode.refresh - monitor->refresh) < 500)
+        // The nearest of those within half a hertz: 60 stays 60 where 59.94 is offered too.
+        const int off = std::abs(mode.refresh - monitor->refresh);
+        if (off < 500 && (refresh < 0 || off < std::abs(refresh - monitor->refresh)))
             refresh = mode.refresh;
         fastest = std::max(fastest, mode.refresh);
     }
