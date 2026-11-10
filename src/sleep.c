@@ -27,9 +27,18 @@ int sh_sleep_inhibit(void) {
     }
     // This runs on VT switches, so a stuck logind must not freeze the desktop for long.
     sd_bus_set_method_call_timeout(bus, 2 * 1000 * 1000);
-    ret = sd_bus_call_method(bus, "org.freedesktop.login1", "/org/freedesktop/login1",
-                             "org.freedesktop.login1.Manager", "Inhibit", &error, &reply, "ssss",
-                             "sleep", "paw", "The desktop is on screen", "block");
+    // systemd 257 holds the user's own requests to a "block" lock too, paw's suspend among
+    // them, and has "block-weak" for a lock as it was; an older logind and elogind know only
+    // "block", which lets them through.
+    const char *modes[] = {"block-weak", "block"};
+    for (size_t i = 0; i < 2; ++i) {
+        sd_bus_error_free(&error);
+        ret = sd_bus_call_method(bus, "org.freedesktop.login1", "/org/freedesktop/login1",
+                                 "org.freedesktop.login1.Manager", "Inhibit", &error, &reply,
+                                 "ssss", "sleep", "paw", "The desktop is on screen", modes[i]);
+        if (ret >= 0 || !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
+            break;
+    }
     int held;
     if (ret < 0) {
         wlr_log(WLR_ERROR, "Cannot keep the machine awake: %s", error.message);
