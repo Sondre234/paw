@@ -366,12 +366,12 @@ std::map<std::string, std::string> rice_source(const std::string &source) {
             throw std::runtime_error("downloading a rice needs curl");
         std::cout << "Downloading " << printable_text(source) << '\n' << std::flush;
         // Into memory, and cut short past the most a rice may be.
-        auto limit = std::to_string(max_rice_file);
+        auto limit = std::to_string(max_rice_archive);
         auto archive = run_filter({"curl", "--proto", "=https", "--proto-redir", "=https", "--fail",
                                    "--silent", "--show-error", "--location", "--max-redirs", "5",
                                    "--max-filesize", limit, "--max-time", "300", "--output", "-",
                                    source},
-                                  "/dev/null", max_rice_file);
+                                  "/dev/null", max_rice_archive);
         return archive_files(std::move(archive), {});
     }
     std::error_code failure;
