@@ -487,6 +487,11 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
     toplevel->urgent = false;
     refresh_frame(toplevel);
     untile_toplevel(toplevel, false);
+    // An X11 window, or one that only took its buffer away, maps again as this same window:
+    // as a new one, not minimized and held to no place.
+    toplevel->minimized = false;
+    toplevel->arranged = toplevel->placed = toplevel->from_tile = toplevel->pseudo = false;
+    toplevel->arrangement = SH_NONE;
     // Not tiled, a window moved with the pointer may still hold a place in a tiling
     // (tile_drop.c), which must not outlive it.
     if (sh_tiling_output(toplevel->server->tiling, toplevel)) {
