@@ -121,6 +121,8 @@ static void take_step(struct sh_server *server, enum sh_idle_step step) {
     }
 }
 
+#define SOURCE_POLL_MS 30000
+
 /* Takes each step whose time has come since the last input, and sets the timer for the next one
  * on either power source, so that a change of source shows at the next step at the latest. */
 static void idle_update(struct sh_server *server) {
@@ -153,8 +155,13 @@ static void idle_update(struct sh_server *server) {
     int64_t next = 0;
     for (size_t i = 0; i < 2; ++i)
         for (int step = 0; step < SH_IDLE_STEPS; ++step) {
-            int64_t left = idle_step_timeout(tables[i], step, NULL) - idle_for;
-            if (!(idle->done & (1u << step)) && left > 0 && (!next || left < next))
+            int timeout = idle_step_timeout(tables[i], step, NULL);
+            if (timeout <= 0 || (idle->done & (1u << step)))
+                continue;
+            // A step still to take whose time is past is the other source's: it is due as soon
+            // as the charger is pulled or put back, which nothing announces, so look again.
+            int64_t left = timeout > idle_for ? timeout - idle_for : SOURCE_POLL_MS;
+            if (!next || left < next)
                 next = left;
         }
     wl_event_source_timer_update(idle->timer, (int)next);
