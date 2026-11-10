@@ -530,6 +530,9 @@ void configure_output(struct sh_server *server, struct sh_output *output) {
         wl_list_remove(&output->link);
         wl_list_insert(in_layout ? &server->outputs : &server->disabled_outputs, &output->link);
         output->disabled = !in_layout;
+        // Out of the layout nothing steps its particles, which would stay where it was.
+        if (!in_layout)
+            ambient_forget_output(output);
     }
     if (source)
         mirror_start(output, source);
