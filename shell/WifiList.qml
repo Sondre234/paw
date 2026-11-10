@@ -58,7 +58,6 @@ Column {
             required property int strength
             required property string security
             required property bool secured
-            required property string security
             // WPA keys are 8 to 63 characters; WPA3's (SAE) may be shorter.
             readonly property int shortestKey: security === "sae" ? 1 : 8
             required property bool active
