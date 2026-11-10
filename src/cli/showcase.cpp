@@ -433,7 +433,8 @@ int showcase(int argc, char **argv) {
         const char *home = std::getenv("HOME");
         std::filesystem::path home_directory = home && *home ? home : "/";
         std::ifstream dirs(
-            (config && *config ? std::filesystem::path(config) : home_directory / ".config") /
+            (config && *config == '/' ? std::filesystem::path(config)
+                                      : home_directory / ".config") /
             "user-dirs.dirs");
         std::stringstream text;
         text << dirs.rdbuf();

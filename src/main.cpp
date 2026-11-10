@@ -265,7 +265,7 @@ std::filesystem::path pictures_directory() {
         return pictures;
     const char *config = std::getenv("XDG_CONFIG_HOME");
     std::ifstream dirs(
-        (config && *config ? std::filesystem::path(config) : home_directory() / ".config") /
+        (config && *config == '/' ? std::filesystem::path(config) : home_directory() / ".config") /
         "user-dirs.dirs");
     for (std::string line; std::getline(dirs, line);) {
         if (!line.starts_with("XDG_PICTURES_DIR=\"") || !line.ends_with('"'))
@@ -1012,15 +1012,8 @@ struct Runtime {
             self.note_started(self.extra_command);
     }
 };
-std::filesystem::path personal_config() {
-    if (const auto *xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
-        return std::filesystem::path(xdg) / "paw/init.lua";
-    if (const auto *home = std::getenv("HOME"); home && *home)
-        return std::filesystem::path(home) / ".config/paw/init.lua";
-    return {};
-}
 std::filesystem::path default_config() {
-    auto personal = personal_config();
+    auto personal = paw::cli::personal_configuration_path();
     if (!personal.empty() && std::filesystem::exists(personal))
         return personal;
     if (auto shipped = paw::default_config_path(); std::filesystem::exists(shipped))
@@ -1061,7 +1054,7 @@ int import_dotfiles(int argc, char **argv) {
     if (source.empty())
         throw std::runtime_error("usage: paw import [--config PATH] [--dry-run] DIR");
     if (config.empty())
-        config = personal_config();
+        config = paw::cli::personal_configuration_path();
     if (config.empty())
         throw std::runtime_error("cannot tell where the configuration lives; pass --config PATH");
     auto result = paw::import_dotfiles(source);
