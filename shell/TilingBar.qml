@@ -506,15 +506,21 @@ Item {
             onTaskChanged: placeWindow()
             Component.onCompleted: placeWindow()
             tip: titleText.truncated ? title : ""
-            contentItem: Text {
-                id: titleText
-                text: window.title
-                textFormat: Text.PlainText
-                width: Math.min(implicitWidth, tilingBar.titleWidth)
-                elide: Text.ElideRight
-                verticalAlignment: Text.AlignVCenter
-                color: tilingBar.foreground
-                font.family: tilingBar.fontFamily; font.pixelSize: tilingBar.fontSize
+            // The button is as wide as its content asks to be, and a text asks for its whole
+            // line however it is cut: the limit is on what holds it.
+            contentItem: Item {
+                implicitWidth: Math.min(titleText.implicitWidth, tilingBar.titleWidth)
+                implicitHeight: titleText.implicitHeight
+                Text {
+                    id: titleText
+                    anchors.fill: parent
+                    text: window.title
+                    textFormat: Text.PlainText
+                    elide: Text.ElideRight
+                    verticalAlignment: Text.AlignVCenter
+                    color: tilingBar.foreground
+                    font.family: tilingBar.fontFamily; font.pixelSize: tilingBar.fontSize
+                }
             }
         }
     }
