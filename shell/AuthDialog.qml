@@ -41,6 +41,8 @@ Item {
             field.forceActiveFocus()
             shake.restart()
         }
+        // Answered or cancelled, the password does not stay in a field nobody sees.
+        function onChanged() { if (!root.auth.open) field.text = "" }
     }
     Keys.onEscapePressed: root.auth.cancel()
     Keys.onUpPressed: root.choose(-1)
@@ -206,7 +208,10 @@ Item {
                 Layout.fillWidth: true
                 leftPadding: Theme.spacingL; rightPadding: Theme.spacingL
                 radius: Theme.macos ? Theme.radiusSmall + 1 : Theme.radiusSmall
-                enabled: root.auth.open && !root.auth.checking
+                // Read only while the answer is checked, not disabled: it keeps the keyboard, and
+                // with it Escape.
+                enabled: root.auth.open
+                readOnly: root.auth.checking
                 echoMode: root.auth.echo ? TextInput.Normal : TextInput.Password
                 placeholderText: root.auth.prompt
                 onAccepted: root.submit()
