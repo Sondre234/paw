@@ -912,6 +912,9 @@ int run_live(const Options &options) {
     struct sigaction quit{}, resize{}, alarm_clock{}, ignore{};
     quit.sa_handler = on_quit;
     resize.sa_handler = on_resize;
+    // A look at the session goes on through a resize, which would otherwise cut its reply short;
+    // ppoll still wakes for one, restarted or not.
+    resize.sa_flags = SA_RESTART;
     alarm_clock.sa_handler = on_alarm;
     ignore.sa_handler = SIG_IGN;
     sigset_t handled, waiting;
