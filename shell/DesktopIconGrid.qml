@@ -848,7 +848,11 @@ FocusScope {
         // Those caught before stay first, in their order, after those it began with.
         const base = bandBase
         const kept = selectionOrder.filter(key => inside.indexOf(key) >= 0 && base.indexOf(key) < 0)
-        select(base.concat(kept, inside.filter(key => kept.indexOf(key) < 0 && base.indexOf(key) < 0)))
+        const caught = base.concat(kept, inside.filter(key => kept.indexOf(key) < 0 && base.indexOf(key) < 0))
+        // Each move of the pointer comes here: the selection is set, which every icon and the
+        // count's hop hear, only when it caught or let go of one.
+        if (caught.length !== selectionOrder.length || caught.some((key, i) => key !== selectionOrder[i]))
+            select(caught)
     }
 
     // The ripple: from where the menu was opened, an icon further away coming or going later.
