@@ -163,8 +163,9 @@ int do_file(lua_State *L) {
     lua_settop(L, 1);
     if (load_file(L) != 1)
         return lua_error(L);
+    int below = lua_gettop(L) - 1; // load_file's arguments, under the chunk
     lua_call(L, 0, LUA_MULTRET);
-    return lua_gettop(L) - 1;
+    return lua_gettop(L) - below;
 }
 int nothing(lua_State *) { return 0; }
 
