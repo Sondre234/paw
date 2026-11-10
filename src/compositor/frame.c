@@ -85,6 +85,37 @@ void drop_kept_buffer(struct wlr_buffer *buffer) {
     wlr_buffer_unlock(buffer);
 }
 
+struct node_picture {
+    struct wlr_buffer *buffer;
+    struct wl_listener destroy;
+};
+
+static void node_picture_destroy(struct wl_listener *listener, void *data) {
+    struct node_picture *picture = wl_container_of(listener, picture, destroy);
+    wl_list_remove(&picture->destroy.link);
+    wlr_buffer_unlock(picture->buffer);
+    free(picture);
+}
+
+/* Shows a picture made for this node alone, held for as long as the node shows it: what copies
+ * a window's nodes (its closing animation, the overview, a minimize) copies those that name a
+ * buffer, which the scene would forget once a GPU renderer has its texture. */
+void set_kept_buffer(struct wlr_scene_buffer *node, struct wlr_buffer *buffer) {
+    struct wl_listener *held = wl_signal_get(&node->node.events.destroy, node_picture_destroy);
+    struct node_picture *picture;
+    if (held) {
+        picture = wl_container_of(held, picture, destroy);
+    } else {
+        picture = calloc(1, sizeof(*picture));
+        add_listener(&node->node.events.destroy, &picture->destroy, node_picture_destroy);
+    }
+    wlr_scene_buffer_set_buffer(node, buffer);
+    wlr_buffer_lock(buffer);
+    if (picture->buffer)
+        wlr_buffer_unlock(picture->buffer);
+    picture->buffer = buffer;
+}
+
 /* The shared buffer for a look of the controls, drawn when first needed and again once an
  * output's scale asks for more pixels. */
 static struct wlr_buffer *deco_buffer(struct sh_server *server, struct sh_deco_look look) {
@@ -394,10 +425,10 @@ void refresh_tabs(struct sh_toplevel *toplevel) {
         if (!buffer)
             return; // it freed the pixels
         if (!toplevel->tabs)
-            toplevel->tabs = wlr_scene_buffer_create(toplevel->content, buffer);
-        else
-            wlr_scene_buffer_set_buffer(toplevel->tabs, buffer);
-        wlr_buffer_drop(buffer); // the scene holds it now
+            toplevel->tabs = wlr_scene_buffer_create(toplevel->content, NULL);
+        if (toplevel->tabs)
+            set_kept_buffer(toplevel->tabs, buffer);
+        wlr_buffer_drop(buffer); // the node holds it now
         if (!toplevel->tabs)
             return;
         toplevel->tabs_width = g.width;

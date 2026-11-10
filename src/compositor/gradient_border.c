@@ -84,8 +84,8 @@ void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, 
         struct wlr_buffer *buffer = sh_pixel_buffer(pixels, piece->buffer_width, piece->buffer_height);
         if (!buffer)
             continue; // it freed the pixels
-        wlr_scene_buffer_set_buffer(node, buffer);
-        wlr_buffer_drop(buffer); // the scene holds it now
+        set_kept_buffer(node, buffer);
+        wlr_buffer_drop(buffer); // the node holds it now
         wlr_scene_buffer_set_dest_size(node, piece->width, piece->height);
         wlr_scene_node_set_position(&node->node, piece->x, piece->y);
     }

@@ -1500,6 +1500,7 @@ void foreign_outputs_follow(struct sh_server *server);
 int pixel_scale(struct sh_server *server);
 struct wlr_buffer *keep_buffer(struct wlr_buffer *buffer);
 void drop_kept_buffer(struct wlr_buffer *buffer);
+void set_kept_buffer(struct wlr_scene_buffer *node, struct wlr_buffer *buffer);
 struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_shadow *look,
                                      int width, int height);
 enum wlr_xdg_toplevel_decoration_v1_mode
