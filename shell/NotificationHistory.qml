@@ -167,7 +167,19 @@ PopupCard {
                     maskThresholdMin: 0.5
                     maskSpreadAtMin: 1
                 }
-                model: history.visible ? history.center.history.groups : []
+                // The groups are a list made anew with every change, and a view given a new list
+                // starts again at its top: it is handed over here, and the view put back where
+                // it was, so that dismissing one notification far down, or one arriving, does not
+                // throw the reader back to the first.
+                readonly property var groups: history.visible ? history.center.history.groups : []
+                function take() {
+                    const y = contentY
+                    model = groups
+                    forceLayout()
+                    contentY = Math.max(0, Math.min(y, contentHeight - height))
+                }
+                onGroupsChanged: take()
+                Component.onCompleted: take()
                 ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
                 // An application's heading, its icon and name, and its notifications under it.
                 delegate: Column {
