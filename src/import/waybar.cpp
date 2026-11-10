@@ -183,8 +183,10 @@ void parse_css(const Files &files, const fs::path &path, Css &css, Report &repor
                     target = trim(std::string_view(target).substr(4, target.size() - 5));
                 if (target.size() >= 2 && (target[0] == '"' || target[0] == '\''))
                     target = target.substr(1, target.size() - 2);
-                if (depth >= 16)
-                    report.skip(files, origin, "@import nested too deeply");
+                // In all too: a file that imports itself several times would be read that
+                // many times at each depth.
+                if (depth >= 16 || ++css.imports > 256)
+                    report.skip(files, origin, "@import nested too deeply, or too many");
                 else if (auto file = files.resolve(target, path.parent_path()))
                     parse_css(files, *file, css, report, depth + 1);
                 else

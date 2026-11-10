@@ -540,7 +540,13 @@ class Hyprlang {
             auto key = trim(std::string_view(line).substr(0, equals));
             auto value = trim(std::string_view(line).substr(equals + 1));
             if (key.starts_with("$")) {
-                variables_[key.substr(1)] = expand(value);
+                auto expanded = expand(value);
+                // $a = $a$a over and over would grow without end.
+                if (expanded.size() > max_variable) {
+                    report_.skip(files_, origin, "variable " + key + " is too long");
+                    continue;
+                }
+                variables_[key.substr(1)] = std::move(expanded);
                 continue;
             }
             value = expand(value);
@@ -728,6 +734,7 @@ class Hyprlang {
     Report &report_;
     std::map<std::string, std::string> variables_;
     int count_ = 0;
+    static constexpr size_t max_variable = 64 * 1024;
 };
 } // namespace
 
