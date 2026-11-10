@@ -341,9 +341,24 @@ std::map<std::string, std::string> archive_files(std::string archive, std::files
             if (fd < 0)
                 throw std::runtime_error("cannot make a temporary file: " +
                                          std::string(std::strerror(errno)));
-            close(fd);
             temporary = file = pattern;
-            write_file(file, archive);
+            // Into the file mkstemp made, not one beside it under a name another user of /tmp
+            // could have guessed.
+            size_t written = 0;
+            while (written < archive.size()) {
+                auto count = write(fd, archive.data() + written, archive.size() - written);
+                if (count < 0 && errno == EINTR)
+                    continue;
+                if (count < 0)
+                    break;
+                written += static_cast<size_t>(count);
+            }
+            int failed = written < archive.size() ? errno : 0;
+            close(fd);
+            if (failed) {
+                std::filesystem::remove(temporary, failure);
+                throw std::runtime_error("cannot write " + pattern + ": " + std::strerror(failed));
+            }
         }
         try {
             archive = run_filter({"gzip", "-dc"}, file, max_rice_archive);
