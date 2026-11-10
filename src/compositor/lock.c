@@ -156,7 +156,7 @@ void server_new_lock(struct wl_listener *listener, void *data) {
     server->locked = true;
     wrapped_save(server);
     set_binding_mode(server, 0); // the volume keys and the like are bound outside any mode
-    if (server->grabbed_toplevel)
+    if (server->cursor_mode != SH_CURSOR_PASSTHROUGH) // a window's move, or the taskbar's
         reset_cursor_mode(server);
     wlr_seat_keyboard_clear_focus(server->seat);
     wlr_seat_pointer_clear_focus(server->seat);
